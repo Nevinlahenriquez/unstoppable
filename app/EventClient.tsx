@@ -41,6 +41,16 @@ function useCheckout() {
   return { busy, error, buy }
 }
 
+/** A referral link (?ref=MAYA) is remembered for 30 days, so the ticket form fills it in. */
+function useRememberRef() {
+  useEffect(() => {
+    try {
+      const code = new URLSearchParams(window.location.search).get('ref')
+      if (code) localStorage.setItem('uref', JSON.stringify({ code: code.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 20), at: Date.now() }))
+    } catch { /* storage blocked: the code can still be typed on the form */ }
+  }, [])
+}
+
 /** Reveal on scroll. One observer for the page; off under reduced motion. */
 function useReveal(root: React.RefObject<HTMLDivElement | null>) {
   useEffect(() => {
@@ -156,6 +166,7 @@ function tierSeatsLeft(t: Tier, stock: Stock | null): number | null {
 export default function EventClient({ stock }: { stock: Stock | null }) {
   const root = useRef<HTMLDivElement>(null)
   useReveal(root)
+  useRememberRef()
   useScrollFx(root)
   const tierLeft = stock?.tierLeft
   const now = currentTier(new Date(), tierLeft)

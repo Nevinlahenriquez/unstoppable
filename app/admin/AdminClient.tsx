@@ -4,9 +4,11 @@ import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { EmailStage, Guest } from '../../lib/guests'
 import { ADMIN_CSS } from './styles'
+import type { Referrer, ReferralSettings, Registration } from '../../lib/referrals'
+import ReferralsTab from './ReferralsTab'
 
 export interface EmailCard { stage: EmailStage; label: string; when: string; dueLabel: string; subject: string; html: string }
-type Tab = 'overview' | 'guests' | 'emails'
+type Tab = 'overview' | 'guests' | 'referrals' | 'emails'
 
 const STAGE_SHORT: Record<EmailStage, string> = { confirmation: 'Confirmation', d7: '1 week', d1: '1 day', day: 'Day of' }
 const when = (iso: string) => new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Makassar' })
@@ -23,6 +25,11 @@ export default function AdminClient(props: {
   stripeConnected: boolean
   emailReady: boolean
   soldElsewhere: number
+  referrers: Referrer[]
+  settings: ReferralSettings
+  registrations: Registration[]
+  siteUrl: string
+  storeOk: boolean
 }) {
   const { me, loadError, emails, event, tiers, salesOpen, stripeConnected, emailReady, soldElsewhere } = props
   const router = useRouter()
@@ -44,6 +51,10 @@ export default function AdminClient(props: {
     if (!s) return guests
     return guests.filter(g => [g.name, g.email, g.phone, g.business, g.website, g.challenge, g.result].join(' ').toLowerCase().includes(s))
   }, [guests, q])
+
+  // Filled in the form but no payment (or sales were closed): the follow-up list.
+  const paidEmails = useMemo(() => new Set(guests.map(g => g.email.toLowerCase())), [guests])
+  const unpaid = useMemo(() => props.registrations.filter(r => r.status !== 'paid' && !paidEmails.has(r.email.toLowerCase())).sort((a, b) => b.createdAt.localeCompare(a.createdAt)), [props.registrations, paidEmails])
 
   const sentLog = useMemo(() => guests.flatMap(g => (Object.entries(g.sent) as [EmailStage, string][]).map(([stage, at]) => ({ g, stage, at }))).sort((a, b) => b.at.localeCompare(a.at)), [guests])
 
@@ -91,7 +102,7 @@ export default function AdminClient(props: {
             </form>
           </div>
           <nav className="ad-tabs" role="tablist">
-            {([['overview', 'Overview'], ['guests', `Guests (${guests.length})`], ['emails', 'Emails']] as [Tab, string][]).map(([k, l]) => (
+            {([['overview', 'Overview'], ['guests', `Guests (${guests.length})`], ['referrals', `Referrals (${props.referrers.length})`], ['emails', 'Emails']] as [Tab, string][]).map(([k, l]) => (
               <button key={k} role="tab" aria-selected={tab === k} className="ad-tab" onClick={() => setTab(k)}>{l}</button>
             ))}
           </nav>
@@ -184,7 +195,31 @@ export default function AdminClient(props: {
                 </div>
               </details>
             ))}
+            <section className="ad-card" style={{ marginTop: 22 }}>
+              <h2>Signed up, not paid yet ({unpaid.length})</h2>
+              <p className="ad-muted" style={{ marginTop: 0, fontSize: 14 }}>They filled in the ticket form{salesOpen ? ' but did not finish paying' : ' while sales were closed'}. Worth a WhatsApp.</p>
+              {unpaid.length ? (
+                <div className="ad-scroll">
+                  <table className="ad-table">
+                    <thead><tr><th>When</th><th>Who</th><th>Phone</th><th>Seats</th><th>Referral</th></tr></thead>
+                    <tbody>{unpaid.map(r => (
+                      <tr key={r.id}>
+                        <td>{when(r.createdAt)}</td>
+                        <td>{r.name}<br /><small style={{ color: '#8E8576' }}>{[r.email, r.business].filter(Boolean).join(' · ')}</small>{r.result ? <><br /><small style={{ color: '#B5AD9F' }}>Wants: {r.result}</small></> : null}</td>
+                        <td>{r.phone ? <a href={waLink(r.phone)} target="_blank" rel="noopener noreferrer" style={{ color: '#E3AE45' }}>{r.phone}</a> : '—'}</td>
+                        <td>{r.qty}</td>
+                        <td>{r.ref || '—'}</td>
+                      </tr>
+                    ))}</tbody>
+                  </table>
+                </div>
+              ) : <p className="ad-empty">Nobody waiting.</p>}
+            </section>
           </>
+        )}
+
+        {tab === 'referrals' && (
+          <ReferralsTab referrers={props.referrers} settings={props.settings} registrations={props.registrations} guests={guests} siteUrl={props.siteUrl} storeOk={props.storeOk} />
         )}
 
         {tab === 'emails' && (

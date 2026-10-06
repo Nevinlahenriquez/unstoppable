@@ -3,9 +3,15 @@ import Stripe from 'stripe'
 import { EVENT, getTier, tierOpen, dateLabel } from '../config'
 import { EVENT_KEY, MAX_PER_ORDER, stock } from '../seats'
 import { salesOpen, SALES_CLOSED_MESSAGE } from '../sales'
+import { storeReady } from '../../lib/store'
+import { buildWaitlistEmail, sendEmail } from '../../lib/emails'
+import { cleanCode, getReferrer, getSettings, newId, saveRegistration, type Registration } from '../../lib/referrals'
+
+const clip = (s: unknown, n: number) => String(s ?? '').trim().slice(0, n)
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 // ─────────────────────────────────────────────────────────────────────────────
-// POST /checkout  { tier: 'early' | 'late', qty?: 1-6 }  ->  { clientSecret }
+// POST /checkout  { tier, qty?, details, ref? }  ->  { clientSecret } or { waitlist: true }
 //
 // Creates a Stripe Checkout session and returns its URL. The browser sends a
 // tier id and NOTHING about money: the amount comes from config.ts, here, on
@@ -23,12 +29,38 @@ import { salesOpen, SALES_CLOSED_MESSAGE } from '../sales'
 
 export async function POST(req: NextRequest) {
   const secret = process.env.STRIPE_SECRET_KEY
+  const body = (await req.json().catch(() => ({}))) as {
+    tier?: string; qty?: number; ref?: string
+    details?: Record<string, string>
+  }
+  // WHO IS COMING. Our own form, before Stripe. Name, email and phone are
+  // required; the rest is optional and feeds the follow-up.
+  const d = body.details ?? {}
+  const who = {
+    name: clip(d.name, 200), email: clip(d.email, 200).toLowerCase(), phone: clip(d.phone, 60),
+    business: clip(d.business, 200), website: clip(d.website, 255),
+    challenge: clip(d.challenge, 450), result: clip(d.result, 450),
+  }
+  if (!who.name || !EMAIL_RE.test(who.email) || who.phone.replace(/\D/g, '').length < 6) {
+    return NextResponse.json({ ok: false, error: 'Please fill in your name, a valid email and your phone number.' }, { status: 400 })
+  }
+  const referrer = body.ref ? await getReferrer(cleanCode(body.ref)).catch(() => null) : null
+  const ref = referrer?.code ?? ''
+
   // Nothing is sold until TICKET_SALES_OPEN=true is set in Vercel (see sales.ts).
+  // Until then the form still works: it saves them to the list as "waitlist".
   if (!secret || !salesOpen()) {
+    if (storeReady()) {
+      const t = getTier(String(body.tier ?? ''))
+      await saveRegistration({ id: newId(), createdAt: new Date().toISOString(), status: 'waitlist', tier: t?.id ?? '', qty: Math.max(1, Math.min(MAX_PER_ORDER, Math.floor(Number(body.qty ?? 1)) || 1)), ...who, ref })
+        .catch(err => console.error('[unstoppable] could not save waitlist', err))
+      const m = buildWaitlistEmail(who.name)
+      if (process.env.RESEND_API_KEY && process.env.EMAIL_FROM) await sendEmail(who.email, m.subject, m.html, `waitlist-${who.email}`).catch(() => {})
+      return NextResponse.json({ ok: true, waitlist: true })
+    }
     return NextResponse.json({ ok: false, error: SALES_CLOSED_MESSAGE }, { status: 503 })
   }
 
-  const body = (await req.json().catch(() => ({}))) as { tier?: string; qty?: number }
   const tier = getTier(String(body.tier ?? ''))
   if (!tier) return NextResponse.json({ ok: false, error: 'Unknown ticket type.' }, { status: 400 })
   const qtyRaw = body.qty
@@ -59,6 +91,22 @@ export async function POST(req: NextRequest) {
   // folder needs no edit here.
   const base = req.nextUrl.pathname.replace(/\/checkout\/?$/, '')
 
+  // A referral code can take money off each ticket, if the hosts set that rule.
+  const settings = referrer ? await getSettings().catch(() => null) : null
+  const off = referrer && settings ? Math.max(0, Math.min(tier.price - 1, Math.floor(settings.friendDiscount || 0))) : 0
+  const unit = tier.price - off
+
+  const reg: Registration = { id: newId(), createdAt: new Date().toISOString(), status: 'started', tier: tier.id, qty, ...who, ref }
+  if (storeReady()) await saveRegistration(reg).catch(err => console.error('[unstoppable] could not save registration', err))
+
+  // Everything we know goes on the PaymentIntent too, so the admin's guest
+  // list (read from Stripe) has it even if the store is ever unreachable.
+  const meta = {
+    event: EVENT_KEY, tier: tier.id, qty: String(qty), synced: '1', reg: reg.id, ref,
+    name: who.name, email: who.email, phone: who.phone, business: who.business,
+    website: who.website, challenge: who.challenge, result: who.result,
+  }
+
   try {
     const stripe = new Stripe(secret)
     const session = await stripe.checkout.sessions.create({
@@ -76,34 +124,23 @@ export async function POST(req: NextRequest) {
         border_style: 'rectangular',
         font_family: 'inter',
       },
-      allow_promotion_codes: true,
+      customer_email: who.email,
       line_items: [{
         price_data: {
           currency: EVENT.currency,
-          unit_amount: tier.price * 100,
+          unit_amount: unit * 100,
           product_data: {
-            name: `${EVENT.name}, ${tier.name} ticket`,
+            name: `${EVENT.name}, ${tier.name} ticket${off ? ` (friend of ${referrer!.name}, $${off} off)` : ''}`,
             description: `${dateLabel()} · ${EVENT.city}`,
           },
         },
         quantity: qty,
       }],
-      // WHO IS COMING. Name, email and phone are required: they are how a
-      // guest is reached before the day and how they will sign in later. The
-      // business and the three questions are optional and feed the follow-up.
-      // All of it is copied onto the PaymentIntent by lib/guests.ts syncGuest().
-      name_collection: { individual: { enabled: true, optional: false }, business: { enabled: true, optional: true } },
-      phone_number_collection: { enabled: true },
-      custom_fields: [
-        { key: 'website', label: { type: 'custom', custom: 'Business website or Instagram' }, type: 'text', optional: true, text: { maximum_length: 255 } },
-        { key: 'challenge', label: { type: 'custom', custom: 'Your biggest challenge right now' }, type: 'text', optional: true, text: { maximum_length: 255 } },
-        { key: 'result', label: { type: 'custom', custom: 'The result you want from the day' }, type: 'text', optional: true, text: { maximum_length: 255 } },
-      ],
       return_url: `${origin}${base}/thank-you?session_id={CHECKOUT_SESSION_ID}`,
-      metadata: { event: EVENT_KEY, tier: tier.id, qty: String(qty) },
+      metadata: { event: EVENT_KEY, tier: tier.id, qty: String(qty), reg: reg.id, ref, name: who.name },
       // qty on the PaymentIntent is what seats.ts counts. Do not drop it.
       payment_intent_data: {
-        metadata: { event: EVENT_KEY, tier: tier.id, qty: String(qty) },
+        metadata: meta,
         // What appears on the card statement after the account prefix.
         statement_descriptor_suffix: 'UNSTOPPABLE',
       },

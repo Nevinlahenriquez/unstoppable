@@ -31,8 +31,34 @@ export default function TicketsClient({ tierId, initialQty, stock, open }: { tie
   const [paying, setPaying] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [who, setWho] = useState({ name: '', email: '', phone: '', business: '', website: '', challenge: '', result: '' })
+  const [ref, setRef] = useState('')
+  const [refInfo, setRefInfo] = useState<{ name: string; discount: number } | null>(null)
+  const [listed, setListed] = useState(false)
+  const set = (k: keyof typeof who) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setWho(w => ({ ...w, [k]: e.target.value }))
   const host = useRef<HTMLDivElement>(null)
   const checkoutRef = useRef<StripeEmbeddedCheckout | null>(null)
+
+  // A referral code from the link (?ref=) or remembered from the event page.
+  useEffect(() => {
+    let code = new URLSearchParams(window.location.search).get('ref') || ''
+    if (!code) {
+      try {
+        const saved = JSON.parse(localStorage.getItem('uref') || 'null') as { code?: string; at?: number } | null
+        if (saved?.code && Date.now() - (saved.at ?? 0) < 30 * 864e5) code = saved.code
+      } catch { /* ignore */ }
+    }
+    if (code) setRef(code.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 20))
+  }, [])
+  useEffect(() => {
+    if (!ref || ref.length < 2) { setRefInfo(null); return }
+    const t = setTimeout(async () => {
+      const d = await fetch(`/api/ref?code=${encodeURIComponent(ref)}`).then(r => r.json()).catch(() => null) as { ok?: boolean; name?: string; discount?: number } | null
+      setRefInfo(d?.ok ? { name: d.name ?? '', discount: d.discount ?? 0 } : null)
+    }, 350)
+    return () => clearTimeout(t)
+  }, [ref])
+  const unit = Math.max(1, tier.price - (refInfo?.discount ?? 0))
 
   useEffect(() => {
     if (!paying) return
@@ -42,7 +68,7 @@ export default function TicketsClient({ tierId, initialQty, stock, open }: { tie
       const res = await fetch(`${base}/checkout`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tier: tier.id, qty }),
+        body: JSON.stringify({ tier: tier.id, qty, details: who, ref }),
       })
       const d = (await res.json().catch(() => ({}))) as { clientSecret?: string; error?: string }
       if (!res.ok || !d.clientSecret) throw new Error(d.error || 'Checkout could not start. Please try again.')
@@ -68,7 +94,29 @@ export default function TicketsClient({ tierId, initialQty, stock, open }: { tie
     }
   }, [paying, qty, tier.id])
 
-  const go = () => { setError(''); setLoading(true); setPaying(true) }
+  const valid = () => {
+    if (!who.name.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(who.email.trim()) || who.phone.replace(/\D/g, '').length < 6) {
+      setError('Please fill in your name, a valid email and your phone number.')
+      return false
+    }
+    return true
+  }
+  const go = async (e?: React.FormEvent) => {
+    e?.preventDefault()
+    setError('')
+    if (!valid()) return
+    if (!open) {
+      // Sales are not open yet: the same form puts them on the list.
+      setLoading(true)
+      const res = await fetch('/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tier: tier.id, qty, details: who, ref }) }).catch(() => null)
+      const d = (await res?.json().catch(() => ({}))) as { ok?: boolean; error?: string } | undefined
+      setLoading(false)
+      if (d?.ok) setListed(true)
+      else setError(d?.error || 'That did not go through. Please try again.')
+      return
+    }
+    setLoading(true); setPaying(true)
+  }
   const back = () => { window.location.href = window.location.pathname.replace(/\/tickets\/?$/, '') || '/' }
 
   return (
@@ -81,7 +129,7 @@ export default function TicketsClient({ tierId, initialQty, stock, open }: { tie
 
       {/* progress: seats -> payment -> confirmed */}
       <ol className="tk-steps" aria-label="Booking progress">
-        <li className="on">Seats</li>
+        <li className="on">Your details</li>
         <li className={paying ? 'on' : ''}>Payment</li>
         <li>Confirmed</li>
       </ol>
@@ -109,7 +157,7 @@ export default function TicketsClient({ tierId, initialQty, stock, open }: { tie
             <div className="tk-row">
               <div>
                 <p className="tk-tier">{tier.name}</p>
-                <p className="tk-muted">{money(tier.price)} per seat{left !== null && !soldOut ? ` · ${left} left at this price` : ''}</p>
+                <p className="tk-muted">{money(unit)} per seat{refInfo?.discount ? ` (friend price, was ${money(tier.price)})` : ''}{left !== null && !soldOut ? ` · ${left} left at this price` : ''}</p>
               </div>
               <div className="tk-qty" aria-label="Number of tickets">
                 <button type="button" aria-label="One ticket fewer" disabled={paying || qty <= 1} onClick={() => setQty(q => Math.max(1, q - 1))}>−</button>
@@ -121,7 +169,7 @@ export default function TicketsClient({ tierId, initialQty, stock, open }: { tie
             <div className="tk-perf" aria-hidden="true" />
             <div className="tk-total">
               <span>Total</span>
-              <b>{money(tier.price * qty)} <small>USD</small></b>
+              <b>{money(unit * qty)} <small>USD</small></b>
             </div>
           </div>
 
@@ -142,26 +190,37 @@ export default function TicketsClient({ tierId, initialQty, stock, open }: { tie
         <section className="tk-pay">
           {soldOut ? (
             <div className="tk-step"><h2>Sold out</h2><p className="tk-muted">Every seat is taken. Write to <a href={`mailto:${EVENT.contactEmail}`}>{EVENT.contactEmail}</a> to join the waiting list.</p></div>
-          ) : !open ? (
+          ) : listed ? (
             <div className="tk-step">
-              <p className="tk-kicker">Almost there</p>
-              <h2>{SALES_CLOSED_MESSAGE}</h2>
-              <p className="tk-muted">Want a seat the moment they do? Write to <a href={`mailto:${EVENT.contactEmail}`}>{EVENT.contactEmail}</a> and we will hold one for you.</p>
+              <p className="tk-kicker">You are on the list</p>
+              <h2>Thank you, {who.name.split(' ')[0]}.</h2>
+              <p className="tk-muted">{SALES_CLOSED_MESSAGE} You will be the first to hear, at {who.email}. Questions? <a href={`mailto:${EVENT.contactEmail}`}>{EVENT.contactEmail}</a></p>
             </div>
           ) : !paying ? (
-            <div className="tk-step">
-              <p className="tk-kicker">Step 1 of 2</p>
-              <h2>{qty > 1 ? `${qty} seats` : 'Your seat'}, {money(tier.price * qty)}</h2>
-              <p className="tk-muted">Choose your seats, then pay right here. Card, Apple Pay and Google Pay. Your ticket arrives by email straight away.</p>
-              <button className="tk-btn" onClick={go}>Continue to payment →</button>
+            <form id="tk-form" className="tk-step" onSubmit={go} noValidate>
+              <p className="tk-kicker">{open ? 'Step 1 of 2 · Your details' : 'Save your spot'}</p>
+              <h2>{open ? 'Who is coming?' : SALES_CLOSED_MESSAGE}</h2>
+              <p className="tk-muted">{open ? 'Your ticket and the day\'s details go to this email.' : 'Leave your details and you hear the moment seats open.'}</p>
+              <div className="tk-fields">
+                <label>Full name *<input value={who.name} onChange={set('name')} autoComplete="name" required /></label>
+                <label>Email *<input type="email" value={who.email} onChange={set('email')} autoComplete="email" required /></label>
+                <label>Phone (WhatsApp) *<input type="tel" value={who.phone} onChange={set('phone')} autoComplete="tel" placeholder="+62 …" required /></label>
+                <label>Business name<input value={who.business} onChange={set('business')} autoComplete="organization" /></label>
+                <label className="tk-wide">Website or Instagram<input value={who.website} onChange={set('website')} /></label>
+                <label className="tk-wide">Your biggest challenge right now<textarea rows={2} maxLength={450} value={who.challenge} onChange={set('challenge')} /></label>
+                <label className="tk-wide">The result you want from the day<textarea rows={2} maxLength={450} value={who.result} onChange={set('result')} /></label>
+                <label className="tk-wide">Referral code<input value={ref} onChange={e => setRef(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 20))} placeholder="If a friend invited you" /></label>
+              </div>
+              {refInfo && <p className="tk-ref">✦ Invited by {refInfo.name}{refInfo.discount ? `: $${refInfo.discount} off each ticket` : ''}</p>}
+              <button className="tk-btn" disabled={loading}>{loading ? 'One moment…' : open ? 'Continue to payment →' : 'Put me on the list →'}</button>
               {error && <p className="tk-error" role="alert">{error}</p>}
-              <p className="tk-trust"><ShieldCheck size={16} aria-hidden="true" /> Encrypted payment. We never see your card.</p>
-            </div>
+              {open && <p className="tk-trust"><ShieldCheck size={16} aria-hidden="true" /> Then pay right here: card, Apple Pay or Google Pay.</p>}
+            </form>
           ) : (
             <div className="tk-step tk-step-pay">
               <div className="tk-step-head">
                 <p className="tk-kicker">Step 2 of 2 · Payment</p>
-                <button className="tk-change" onClick={() => setPaying(false)}>Change seats</button>
+                <button className="tk-change" onClick={() => setPaying(false)}>Change details</button>
               </div>
               {loading && <p className="tk-muted tk-loading">Opening secure payment…</p>}
               <div ref={host} className="tk-host" />
@@ -171,10 +230,10 @@ export default function TicketsClient({ tierId, initialQty, stock, open }: { tie
       </div>
 
       {/* Phone: total and the one action, always under the thumb. */}
-      {open && !paying && !soldOut && (
+      {!paying && !listed && !soldOut && (
         <div className="tk-bar">
-          <div><small>{qty > 1 ? `${qty} seats` : '1 seat'} · {tier.name}</small><b>{money(tier.price * qty)}</b></div>
-          <button className="tk-btn" onClick={go}>Pay securely →</button>
+          <div><small>{qty > 1 ? `${qty} seats` : '1 seat'} · {tier.name}</small><b>{money(unit * qty)}</b></div>
+          <button className="tk-btn" type="submit" form="tk-form" disabled={loading}>{open ? 'Continue →' : 'Join the list →'}</button>
         </div>
       )}
 
@@ -247,6 +306,13 @@ export default function TicketsClient({ tierId, initialQty, stock, open }: { tie
         .tk-loading{padding:30px 0;text-align:center}
         .tk-host{min-height:200px;border-radius:4px;overflow:hidden}
         .tk-bar{display:none}
+        .tk-fields{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:20px}
+        .tk-fields label{display:grid;gap:6px;font-size:11.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#B5AD9F}
+        .tk-fields .tk-wide{grid-column:1/-1}
+        .tk-fields input,.tk-fields textarea{width:100%;font:16px/1.4 var(--vv-body),Inter,sans-serif;color:#F7F3EA;caret-color:#E3AE45;background:#16140F;border:1px solid rgba(227,174,69,.3);border-radius:4px;padding:12px 13px;text-transform:none;letter-spacing:0;resize:vertical}
+        .tk-fields input:focus,.tk-fields textarea:focus{outline:none;border-color:#E3AE45}
+        .tk-ref{margin:14px 0 0;color:#F7D27A;font-weight:700;font-size:14px}
+        .tk-btn:disabled{opacity:.6;cursor:default}
         @media (max-width:900px){
           .tk-grid{grid-template-columns:1fr;margin-top:18px}
           .tk-pay{position:static}
@@ -261,6 +327,7 @@ export default function TicketsClient({ tierId, initialQty, stock, open }: { tie
           .tk{padding:0 14px 40px}
           .tk-secure{display:none}
           .tk-facts{grid-template-columns:1fr}
+          .tk-fields{grid-template-columns:1fr}
           .tk-card,.tk-step{padding:20px 18px}
           .tk-perf{margin:6px -18px 0}
           .tk-hero{min-height:200px}

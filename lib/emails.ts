@@ -141,3 +141,13 @@ export async function sendEmail(to: string, subject: string, html: string, idemp
     return { ok: false, error: 'Could not reach Resend.' }
   }
 }
+
+/** Sent when somebody fills in the ticket form while sales are still closed. */
+export function buildWaitlistEmail(name: string): { subject: string; html: string } {
+  return {
+    subject: `You are on the list for ${EVENT.name}`,
+    html: shell(`You are on the list, ${esc(name.split(' ')[0] || 'there')}.`,
+      p('Thank you for saving your spot. Seats open very soon and you will be among the first to hear, with the link to book.') +
+      p('Want to come with a friend? Bring them along: the day is better shared.')),
+  }
+}

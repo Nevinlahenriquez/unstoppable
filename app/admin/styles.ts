@@ -76,4 +76,7 @@ export const ADMIN_CSS = `
 .ad-table th{text-align:left;font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;color:#8E8576;padding:8px 6px;border-bottom:1px solid rgba(255,255,255,.1)}
 .ad-table td{padding:10px 6px;border-bottom:1px solid rgba(255,255,255,.06);color:#D9D2C5;vertical-align:top}
 .ad-scroll{overflow-x:auto}
+.ad-form{display:grid;gap:12px}
+.ad-form label{display:grid;gap:6px;font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#8E8576}
+.ad-form .ad-btn{margin-top:4px}
 `

@@ -5,6 +5,8 @@ import { buildEmail, dueAt, STAGE_INFO } from '../../lib/emails'
 import { EVENT, TIERS, dateLabel } from '../config'
 import { salesOpen, seatsSoldElsewhere } from '../sales'
 import AdminLogin from './AdminLogin'
+import { storeReady } from '../../lib/store'
+import { DEFAULT_SETTINGS, getSettings, listReferrers, listRegistrations, type Referrer, type Registration } from '../../lib/referrals'
 import AdminClient, { type EmailCard } from './AdminClient'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -35,6 +37,16 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
     loadError = 'Stripe could not be reached just now. Refresh in a minute.'
   }
 
+  let referrers: Referrer[] = []
+  let registrations: Registration[] = []
+  let settings = DEFAULT_SETTINGS
+  try {
+    ;[referrers, registrations, settings] = await Promise.all([listReferrers(), listRegistrations(), getSettings()])
+  } catch (err) {
+    console.error('[unstoppable] admin could not read the event store', err)
+  }
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://unstoppable.events'
+
   const emails: EmailCard[] = STAGES.map(s => ({
     stage: s,
     label: STAGE_INFO[s].label,
@@ -56,6 +68,11 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       stripeConnected={!!process.env.STRIPE_SECRET_KEY}
       emailReady={!!process.env.RESEND_API_KEY && !!process.env.EMAIL_FROM}
       soldElsewhere={seatsSoldElsewhere()}
+      referrers={referrers}
+      registrations={registrations}
+      settings={settings}
+      siteUrl={siteUrl}
+      storeOk={storeReady()}
     />
   )
 }

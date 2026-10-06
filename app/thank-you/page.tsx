@@ -4,6 +4,7 @@ import { EVENT, VENUE, dateLabel, timeLabel, getTier } from '../config'
 import { EVENT_KEY } from '../seats'
 import { syncGuest, toGuest } from '../../lib/guests'
 import { sendStage } from '../../lib/deliver'
+import { getRegistration, saveRegistration } from '../../lib/referrals'
 
 // The page Stripe sends a buyer back to. It asks Stripe whether the session was
 // actually PAID before saying "you're in": the redirect alone proves nothing,
@@ -28,12 +29,15 @@ async function lookup(sessionId: string): Promise<Paid | null> {
       if (piId) {
         const pi = await syncGuest(stripe, await stripe.paymentIntents.retrieve(piId), s)
         await sendStage(toGuest(pi), 'confirmation')
+        // Mark their form entry as paid, so the admin's waitlist stays honest.
+        const reg = await getRegistration(String(s.metadata?.reg ?? ''))
+        if (reg && reg.status !== 'paid') await saveRegistration({ ...reg, status: 'paid', paymentId: piId, paidAt: new Date().toISOString() })
       }
     } catch (err) {
       console.error('[unstoppable] could not save guest or send confirmation', err)
     }
     return {
-      name: (s.customer_details?.individual_name || s.customer_details?.name)?.split(' ')[0] || 'there',
+      name: (s.metadata?.name || s.customer_details?.individual_name || s.customer_details?.name)?.split(' ')[0] || 'there',
       email: s.customer_details?.email || '',
       tier: getTier(String(s.metadata?.tier))?.name || 'Ticket',
       qty: Math.max(1, parseInt(s.metadata?.qty ?? '1', 10) || 1),

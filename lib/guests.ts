@@ -35,6 +35,7 @@ export interface Guest {
   website: string
   challenge: string
   result: string
+  ref: string
   checkedIn: string
   sent: Partial<Record<EmailStage, string>>
 }
@@ -64,6 +65,7 @@ export function toGuest(pi: Stripe.PaymentIntent): Guest {
     website: m.website || '',
     challenge: m.challenge || '',
     result: m.result || '',
+    ref: m.ref || '',
     checkedIn: m.checked_in || '',
     sent,
   }
