@@ -90,7 +90,8 @@ function useScrollFx(root: React.RefObject<HTMLDivElement | null>) {
       raf = 0
       const h = document.documentElement.scrollHeight - innerHeight
       el.style.setProperty('--vv-p', String(h > 0 ? scrollY / h : 0))
-      el.style.setProperty('--vv-y', String(Math.min(scrollY, innerHeight)))
+      // No hero drift on phones: the URL bar resizing the screen made it shake.
+      el.style.setProperty('--vv-y', innerWidth > 760 ? String(Math.min(scrollY, innerHeight)) : '0')
       for (const t of targets) {
         const r = t.getBoundingClientRect()
         const s = (innerHeight - r.top) / (innerHeight * 0.75)
@@ -644,7 +645,7 @@ export default function EventClient({ stock }: { stock: Stock | null }) {
 }
 
 const CSS = `
-.vv{--ink:#050505;--ink2:#0D0C0A;--ink3:#16140F;--bone:#F7F3EA;--paper:#080808;--sand:#14120E;--gold:#E3AE45;--gold2:#F7D27A;--text:#F7F3EA;--body:#B5AD9F;--muted:#8E8576;--line:rgba(227,174,69,.18);--dline:rgba(227,174,69,.18);--dbody:#B5AD9F;
+.vv{--ink:#0A0806;--ink2:#15110C;--ink3:#1E1912;--bone:#F7F3EA;--paper:#080808;--sand:#14120E;--gold:#E3AE45;--gold2:#F7D27A;--text:#F7F3EA;--body:#B5AD9F;--muted:#8E8576;--line:rgba(227,174,69,.18);--dline:rgba(227,174,69,.18);--dbody:#B5AD9F;
   --serif:var(--vv-display),'Anton',Impact,sans-serif;--sans:var(--vv-body),'Inter',system-ui,sans-serif;
   background:var(--paper);color:var(--text);font-family:var(--sans);font-weight:400;font-size:16px;line-height:1.65;overflow-x:clip;-webkit-font-smoothing:antialiased}
 .vv *{box-sizing:border-box}
@@ -829,9 +830,11 @@ const CSS = `
 .vv-host-bio{color:var(--dbody);font-weight:300;margin:0;max-width:520px}
 
 /* mission */
-.vv-mission{text-align:center;background:var(--ink2)}
+.vv-mission{text-align:center;background:#F3ECDD;color:#1A140C}
+.vv-mission .vv-label,.vv-mission .vv-by{color:#7A6440}
+.vv-mission blockquote{color:#1A140C}
 .vv-mission blockquote{margin:0;font-family:var(--sans);font-weight:700;font-size:clamp(22px,2.6vw,34px);line-height:1.35;letter-spacing:-.01em}
-.vv-mission blockquote:before{content:'“';display:block;font-size:100px;line-height:.6;color:var(--gold);margin-bottom:12px}
+.vv-mission blockquote:before{content:'“';display:block;font-size:100px;line-height:.6;color:#B8862B;margin-bottom:12px}
 .vv-by{margin:34px 0 0;font-size:12px;letter-spacing:.22em;text-transform:uppercase;color:var(--muted)}
 
 /* editorial grade, so every photo sits in one palette */
@@ -910,8 +913,9 @@ const CSS = `
 .vv-ico{display:inline-flex;align-items:center;justify-content:center;width:58px;height:58px;border-radius:4px;color:var(--gold2);background:radial-gradient(circle at 30% 20%,rgba(247,210,122,.22),rgba(227,174,69,.06));border:1px solid rgba(227,174,69,.45);box-shadow:0 10px 30px -12px rgba(227,174,69,.5)}
 
 /* hero photo: Amavi under the gold */
-.vv-hero-photo{position:absolute;inset:0;opacity:.28;filter:grayscale(.35) sepia(.5) saturate(1.3) contrast(1.1)}
-.vv-hero-photo:after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.55) 0%,rgba(0,0,0,.35) 40%,#000 96%)}
+.vv-hero-photo{position:absolute;inset:0;opacity:.85;filter:saturate(1.05) contrast(1.05)}
+.vv-hero-photo:after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(10,8,6,.72) 0%,rgba(10,8,6,.5) 28%,rgba(10,8,6,.62) 58%,rgba(10,8,6,.9) 86%,var(--ink) 100%)}
+.vv-hero .vv-orb{opacity:.3}
 
 /* halves: two photo cards */
 .vv-halves{display:grid;grid-template-columns:1fr 1fr;max-width:1200px;margin:0 auto;padding:0 24px;gap:20px}
@@ -1043,6 +1047,14 @@ const CSS = `
   .vv-shift-arrow{width:auto;height:auto;border:0;justify-content:flex-start;transform:rotate(90deg);width:16px}
   .vv-sticky-buy b{font-family:var(--serif);font-weight:400;font-size:24px;margin-right:8px}
   .vv-sticky-buy span{font-size:12px;color:var(--dbody)}
+}
+@media (max-width:760px){
+  .vv-aura,.vv-hero-in,.vv-venue-logo,.vv-venue-main,.vv-venue-small{transform:none!important}
+  .vv-hero-in{opacity:1!important}
+  .vv-venue-photos{order:-1;width:100%;padding-bottom:56px}
+  .vv-venue-small{left:auto;right:-6px;width:42%}
+  .vv-venue-grid{display:flex;flex-direction:column}
+  .vv-venue{padding:96px 0}
 }
 @media (prefers-reduced-motion:reduce){
   .vv [data-r],.vv-load{opacity:1!important;transform:none!important;animation:none!important;transition:none!important}
