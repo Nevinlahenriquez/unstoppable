@@ -88,15 +88,17 @@ export async function POST(req: NextRequest) {
         },
         quantity: qty,
       }],
-      // Name and email come with the payment; the phone number is how the
-      // hosts reach a guest on the day.
+      // WHO IS COMING. Name, email and phone are required: they are how a
+      // guest is reached before the day and how they will sign in later. The
+      // business and the three questions are optional and feed the follow-up.
+      // All of it is copied onto the PaymentIntent by lib/guests.ts syncGuest().
+      name_collection: { individual: { enabled: true, optional: false }, business: { enabled: true, optional: true } },
       phone_number_collection: { enabled: true },
-      custom_fields: [{
-        key: 'intention',
-        label: { type: 'custom', custom: 'What do you want to walk away with?' },
-        type: 'text',
-        optional: true,
-      }],
+      custom_fields: [
+        { key: 'website', label: { type: 'custom', custom: 'Business website or Instagram' }, type: 'text', optional: true, text: { maximum_length: 255 } },
+        { key: 'challenge', label: { type: 'custom', custom: 'Your biggest challenge right now' }, type: 'text', optional: true, text: { maximum_length: 255 } },
+        { key: 'result', label: { type: 'custom', custom: 'The result you want from the day' }, type: 'text', optional: true, text: { maximum_length: 255 } },
+      ],
       return_url: `${origin}${base}/thank-you?session_id={CHECKOUT_SESSION_ID}`,
       metadata: { event: EVENT_KEY, tier: tier.id, qty: String(qty) },
       // qty on the PaymentIntent is what seats.ts counts. Do not drop it.

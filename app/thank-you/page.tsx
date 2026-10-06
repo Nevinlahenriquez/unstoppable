@@ -2,6 +2,8 @@ import type { Metadata } from 'next'
 import Stripe from 'stripe'
 import { EVENT, VENUE, dateLabel, timeLabel, getTier } from '../config'
 import { EVENT_KEY } from '../seats'
+import { syncGuest, toGuest } from '../../lib/guests'
+import { sendStage } from '../../lib/deliver'
 
 // The page Stripe sends a buyer back to. It asks Stripe whether the session was
 // actually PAID before saying "you're in": the redirect alone proves nothing,
@@ -18,8 +20,20 @@ async function lookup(sessionId: string): Promise<Paid | null> {
   try {
     const s = await new Stripe(secret).checkout.sessions.retrieve(sessionId)
     if (s.payment_status !== 'paid' || s.metadata?.event !== EVENT_KEY) return null
+    // Save who they are on the order and send the confirmation email, once.
+    // A failure here never hides the ticket: the hourly cron catches it up.
+    try {
+      const stripe = new Stripe(secret)
+      const piId = typeof s.payment_intent === 'string' ? s.payment_intent : s.payment_intent?.id
+      if (piId) {
+        const pi = await syncGuest(stripe, await stripe.paymentIntents.retrieve(piId), s)
+        await sendStage(toGuest(pi), 'confirmation')
+      }
+    } catch (err) {
+      console.error('[unstoppable] could not save guest or send confirmation', err)
+    }
     return {
-      name: s.customer_details?.name?.split(' ')[0] || 'there',
+      name: (s.customer_details?.individual_name || s.customer_details?.name)?.split(' ')[0] || 'there',
       email: s.customer_details?.email || '',
       tier: getTier(String(s.metadata?.tier))?.name || 'Ticket',
       qty: Math.max(1, parseInt(s.metadata?.qty ?? '1', 10) || 1),
@@ -42,7 +56,7 @@ export default async function ThankYou({ searchParams }: { searchParams: Promise
         {paid ? (
           <>
             <h1>You are in, {paid.name}.</h1>
-            <p>{paid.qty > 1 ? `Your ${paid.qty} ${paid.tier.toLowerCase()} tickets` : `Your ${paid.tier.toLowerCase()} ticket`}{paid.amount ? ` (${paid.amount})` : ''} {paid.qty > 1 ? 'are' : 'is'} confirmed. Your receipt is on its way{paid.email ? ` to ${paid.email}` : ''}.</p>
+            <p>{paid.qty > 1 ? `Your ${paid.qty} ${paid.tier.toLowerCase()} tickets` : `Your ${paid.tier.toLowerCase()} ticket`}{paid.amount ? ` (${paid.amount})` : ''} {paid.qty > 1 ? 'are' : 'is'} confirmed. A confirmation email and your receipt are on their way{paid.email ? ` to ${paid.email}` : ''}.</p>
             <dl>
               <div><dt>When</dt><dd>{dateLabel()} · {timeLabel()}</dd></div>
               <div><dt>Where</dt><dd>{VENUE.name}, {VENUE.area}{VENUE.address ? ` · ${VENUE.address}` : ''}{VENUE.mapsUrl ? <> · <a href={VENUE.mapsUrl} target="_blank" rel="noopener noreferrer">Google Maps</a></> : null}</dd></div>
