@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { EVENT, VENUE, dateLabel, timeLabel, getTier } from '../../config'
 import { getGuest } from '../../../lib/guests'
-import { qrSvg, readTicket, ticketCode } from '../../../lib/ticket'
+import { qrSvg, readTicket, ticketCode, isSample, sampleGuest } from '../../../lib/ticket'
 import { RememberTicket } from '../../../components/MyTicket'
 
 export const dynamic = 'force-dynamic'
@@ -10,7 +10,8 @@ export const metadata: Metadata = { title: `Your ticket · ${EVENT.name}`, robot
 // The guest's ticket. No login: the signed code in the address IS the key.
 export default async function TicketPage({ params }: { params: Promise<{ code: string }> }) {
   const id = readTicket((await params).code)
-  const g = id ? await getGuest(id).catch(() => null) : null
+  const sample = isSample(id)
+  const g = sample ? { ...sampleGuest } : id ? await getGuest(id).catch(() => null) : null
   const svg = g ? await qrSvg(g.id) : ''
   return (
     <main style={{ minHeight: '100vh', background: '#000', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '28px 16px', fontFamily: 'var(--vv-body), system-ui, sans-serif' }}>
@@ -21,7 +22,7 @@ export default async function TicketPage({ params }: { params: Promise<{ code: s
           <p style={{ margin: '18px 0 0', color: '#F2B8A0', lineHeight: 1.6 }}>We could not find this ticket. Check the link in your email, or write to <a href={`mailto:${EVENT.contactEmail}`} style={{ color: '#E3AE45' }}>{EVENT.contactEmail}</a>.</p>
         ) : (
           <>
-            <RememberTicket code={ticketCode(g.id)} />
+            {sample ? <p style={{ margin: '10px 0 8px', padding: '8px 10px', border: '1px solid #E3AE45', borderRadius: 4, color: '#E3AE45', fontSize: 13, fontWeight: 700 }}>Sample ticket from a test email. Not valid at the door.</p> : <RememberTicket code={ticketCode(g.id)} />}
             <p style={{ margin: '0 0 20px', color: '#B5AD9F', fontSize: 14 }}>{EVENT.subtitle}</p>
             <div style={{ background: '#fff', borderRadius: 6, padding: 10, width: 240, height: 240, margin: '0 auto' }} dangerouslySetInnerHTML={{ __html: svg }} />
             <p style={{ margin: '14px 0 20px', color: '#B5AD9F', fontSize: 14 }}>Show this code at the door.</p>

@@ -1,4 +1,5 @@
 import { getGuest, setMeta } from './guests'
+import { isSample } from './ticket'
 import { readTicket } from './ticket'
 
 // One scan at the door: admits ONE seat of the paid order behind a QR code.
@@ -18,6 +19,7 @@ const slim = (g: { name: string; qty: number; checkedInCount: number; checkedIn:
 export async function admit(code: unknown): Promise<AdmitResult> {
   const id = readTicket(String(code ?? ''))
   if (!id) return { ok: false, status: 'invalid', error: 'This is not a valid ticket.' }
+  if (isSample(id)) return { ok: false, status: 'invalid', error: 'This is the sample ticket from a test email. Not valid at the door.' }
   const g = await getGuest(id).catch(() => null)
   if (!g) return { ok: false, status: 'invalid', error: 'No paid order found for this ticket.' }
   if (g.checkedInCount >= g.qty) {

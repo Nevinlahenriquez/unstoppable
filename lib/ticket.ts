@@ -24,12 +24,19 @@ function sig(id: string): string {
   return createHmac('sha256', secret).update(`ticket:${id}`).digest('base64url').slice(0, 16)
 }
 
-export const ticketCode = (paymentId: string) => `${paymentId}.${sig(paymentId)}`
+// The sample ticket (admin test emails, previews). Its code is the word "sample",
+// it needs no Stripe payment, and the door scanner never admits it.
+export const SAMPLE_ID = 'pi_SAMPLE'
+export const sampleGuest = { id: SAMPLE_ID, name: 'Sample Guest', qty: 2, tier: 'early', result: 'Speak on a stage with total confidence' }
+export const isSample = (id: string | null | undefined) => id === SAMPLE_ID
+
+export const ticketCode = (paymentId: string) => (isSample(paymentId) ? 'sample' : `${paymentId}.${sig(paymentId)}`)
 export const ticketUrl = (paymentId: string) => `${siteUrl()}/t/${ticketCode(paymentId)}`
 
 /** The payment id inside a valid code, or null. Accepts a bare code or a full ticket URL. */
 export function readTicket(input: string): string | null {
   const code = decodeURIComponent(String(input ?? '').trim().split(/[?#]/)[0].split('/').pop() ?? '')
+  if (code === 'sample') return SAMPLE_ID
   const [id, s] = code.split('.')
   if (!id || !s || !/^pi_[A-Za-z0-9]+$/.test(id) || !process.env.ADMIN_SECRET) return null
   const a = Buffer.from(sig(id)), b = Buffer.from(s)
@@ -70,6 +77,6 @@ export async function ticketPdf(g: Pick<Guest, 'id' | 'name' | 'qty' | 'tier'>):
   text(`${VENUE.name}, ${VENUE.area}`, 40, 110, 13, bold)
   const tier = getTier(g.tier)?.name
   if (tier) text(`Ticket: ${tier}`, 40, 76, 10, reg, grey)
-  text(`Show this QR code at the door. Ref ${g.id.slice(-8).toUpperCase()}`, 40, 56, 9, reg, grey)
+  text(isSample(g.id) ? 'SAMPLE TICKET - not valid at the door' : `Show this QR code at the door. Ref ${g.id.slice(-8).toUpperCase()}`, 40, 56, 9, isSample(g.id) ? bold : reg, isSample(g.id) ? gold : grey)
   return doc.save()
 }
