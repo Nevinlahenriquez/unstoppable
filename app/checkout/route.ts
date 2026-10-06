@@ -52,8 +52,10 @@ export async function POST(req: NextRequest) {
   if (!secret || !salesOpen()) {
     if (storeReady()) {
       const t = getTier(String(body.tier ?? ''))
-      await saveRegistration({ id: newId(), createdAt: new Date().toISOString(), status: 'waitlist', tier: t?.id ?? '', qty: Math.max(1, Math.min(MAX_PER_ORDER, Math.floor(Number(body.qty ?? 1)) || 1)), ...who, ref })
-        .catch(err => console.error('[unstoppable] could not save waitlist', err))
+      const saved = await saveRegistration({ id: newId(), createdAt: new Date().toISOString(), status: 'waitlist', tier: t?.id ?? '', qty: Math.max(1, Math.min(MAX_PER_ORDER, Math.floor(Number(body.qty ?? 1)) || 1)), ...who, ref })
+        .then(() => true, err => { console.error('[unstoppable] could not save waitlist', err); return false })
+      // Never tell somebody they are on the list when they are not.
+      if (!saved) return NextResponse.json({ ok: false, error: 'That did not save. Please try again in a minute.' }, { status: 503 })
       const m = buildWaitlistEmail(who.name)
       if (process.env.RESEND_API_KEY && process.env.EMAIL_FROM) await sendEmail(who.email, m.subject, m.html, `waitlist-${who.email}`).catch(() => {})
       return NextResponse.json({ ok: true, waitlist: true })
