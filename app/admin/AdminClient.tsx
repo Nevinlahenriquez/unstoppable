@@ -42,7 +42,7 @@ export default function AdminClient(props: {
 
   const seatsSold = guests.reduce((n, g) => n + g.qty, 0) + soldElsewhere
   const revenue = guests.reduce((n, g) => n + g.amount, 0)
-  const checkedIn = guests.filter(g => g.checkedIn).reduce((n, g) => n + g.qty, 0)
+  const checkedIn = guests.reduce((n, g) => n + g.checkedInCount, 0)
   const early = tiers.find(t => t.seats)
   const earlySold = early ? guests.filter(g => g.tier === early.id).reduce((n, g) => n + g.qty, 0) : 0
 
@@ -98,7 +98,7 @@ export default function AdminClient(props: {
               <h1>{event.name}</h1>
             </div>
             <form className="ad-me" action="/admin/logout" method="post">
-              {me}<br /><button>Sign out</button>
+              <a href="/admin/scan" className="ad-btn sm" style={{ marginBottom: 6 }}>Scan tickets</a><br />{me}<br /><button>Sign out</button>
             </form>
           </div>
           <nav className="ad-tabs" role="tablist">
@@ -173,7 +173,7 @@ export default function AdminClient(props: {
               <details key={g.id} className="ad-g">
                 <summary>
                   <span className="ad-g-name">{g.name || g.email}{g.qty > 1 ? ` (${g.qty})` : ''}</span>
-                  <span className={`ad-pill${g.checkedIn ? ' ok' : ''}`}>{g.checkedIn ? 'Checked in' : tiers.find(t => t.id === g.tier)?.name || 'Ticket'}</span>
+                  <span className={`ad-pill${g.checkedIn ? ' ok' : ''}`}>{g.checkedIn ? (g.qty > 1 && g.checkedInCount < g.qty ? `In ${g.checkedInCount}/${g.qty}` : 'Checked in') : tiers.find(t => t.id === g.tier)?.name || 'Ticket'}</span>
                   <span className="ad-g-sub">{[g.business, g.email].filter(Boolean).join(' · ')}</span>
                 </summary>
                 <div className="ad-g-body">

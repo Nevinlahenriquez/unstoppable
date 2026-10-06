@@ -9,7 +9,8 @@ export async function POST(req: NextRequest) {
   const b = (await req.json().catch(() => ({}))) as { id?: string; action?: string; stage?: string }
   const id = String(b.id ?? '')
   if (b.action === 'checkin' || b.action === 'uncheck') {
-    const g = await setMeta(id, { checked_in: b.action === 'checkin' ? new Date().toISOString() : '' })
+    const cur = await getGuest(id)
+    const g = cur && await setMeta(id, b.action === 'checkin' ? { checked_in: cur.checkedIn || new Date().toISOString(), checked_in_n: String(cur.qty) } : { checked_in: '', checked_in_n: '' })
     return g ? NextResponse.json({ ok: true, guest: g }) : NextResponse.json({ ok: false, error: 'Guest not found.' }, { status: 404 })
   }
   if (b.action === 'resend' && STAGES.includes(b.stage as EmailStage)) {

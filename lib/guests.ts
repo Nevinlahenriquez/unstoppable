@@ -8,7 +8,7 @@ import { EVENT_KEY } from '../app/seats'
 //
 //   name, email, phone, business, website, challenge, result   who they are
 //   sent_confirmation, sent_d7, sent_d1, sent_day              emails sent (ISO time)
-//   checked_in                                                  door check-in (ISO time)
+//   checked_in, checked_in_n                                    door check-in (first ISO time, seats in)
 //
 // The details are typed into Stripe's checkout form, so they arrive on the
 // Checkout Session. syncGuest() copies them onto the PaymentIntent once, so the
@@ -37,6 +37,8 @@ export interface Guest {
   result: string
   ref: string
   checkedIn: string
+  /** Seats of this order already through the door (one QR admits all its seats, one scan each). */
+  checkedInCount: number
   sent: Partial<Record<EmailStage, string>>
 }
 
@@ -67,6 +69,7 @@ export function toGuest(pi: Stripe.PaymentIntent): Guest {
     result: m.result || '',
     ref: m.ref || '',
     checkedIn: m.checked_in || '',
+    checkedInCount: m.checked_in_n ? parseInt(m.checked_in_n, 10) || 0 : m.checked_in ? Math.max(1, parseInt(m.qty ?? '1', 10) || 1) : 0,
     sent,
   }
 }

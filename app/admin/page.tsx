@@ -52,8 +52,8 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
     label: STAGE_INFO[s].label,
     when: STAGE_INFO[s].when,
     dueLabel: fmt(dueAt(s)),
-    subject: buildEmail(s, { name: 'Alex', qty: 1, tier: 'early', result: 'Speak on a stage with total confidence' }).subject,
-    html: buildEmail(s, { name: 'Alex', qty: 1, tier: 'early', result: 'Speak on a stage with total confidence' }).html,
+    subject: buildEmail(s, { id: 'pi_PREVIEW', name: 'Alex', qty: 1, tier: 'early', result: 'Speak on a stage with total confidence' }).subject,
+    html: buildEmail(s, { id: 'pi_PREVIEW', name: 'Alex', qty: 1, tier: 'early', result: 'Speak on a stage with total confidence' }).html,
   }))
 
   return (

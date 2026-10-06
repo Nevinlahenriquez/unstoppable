@@ -1,5 +1,6 @@
 import { EVENT, VENUE, INCLUDED, dateLabel, timeLabel, getTier } from '../app/config'
 import type { EmailStage, Guest } from './guests'
+import { ticketPdf, ticketUrl } from './ticket'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GUEST EMAILS. Four automatic emails, sent through Resend from
@@ -75,7 +76,18 @@ function firstName(g: Pick<Guest, 'name'>) {
   return esc(g.name.split(' ')[0] || 'there')
 }
 
-export function buildEmail(stage: EmailStage, g: Pick<Guest, 'name' | 'qty' | 'tier' | 'result'>): { subject: string; html: string } {
+function ticketBlock(id?: string): string {
+  if (!id || !process.env.ADMIN_SECRET) return ''
+  const url = ticketUrl(id)
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:6px 0 20px;border:1px solid rgba(227,174,69,.45);border-radius:6px"><tr><td align="center" style="padding:22px 16px">
+<p style="margin:0 0 12px;font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#E3AE45">Your ticket</p>
+<img src="${esc(url)}/qr.png" width="200" height="200" alt="Your ticket QR code" style="display:block;width:200px;height:200px;background:#fff;border-radius:4px">
+<p style="margin:14px 0 14px;font-size:14px;line-height:1.5;color:#B5AD9F">Show this code at the door. It is also attached as a PDF.</p>
+<a href="${esc(url)}" style="display:inline-block;background:#E3AE45;color:#000;font-weight:800;font-size:14.5px;text-decoration:none;padding:13px 22px;border-radius:3px">Open your ticket</a>
+</td></tr></table>`
+}
+
+export function buildEmail(stage: EmailStage, g: Pick<Guest, 'name' | 'qty' | 'tier' | 'result'> & { id?: string }): { subject: string; html: string } {
   const n = firstName(g)
   const seats = g.qty > 1 ? `${g.qty} seats` : 'your seat'
   if (stage === 'confirmation') {
@@ -85,6 +97,7 @@ export function buildEmail(stage: EmailStage, g: Pick<Guest, 'name' | 'qty' | 't
       subject: `You are in: ${EVENT.name}, ${dateLabel()}`,
       html: shell(`You are in, ${n}.`,
         p(`${g.qty > 1 ? `Your ${g.qty} ${tier ? esc(tier.toLowerCase()) + ' ' : ''}tickets are` : `Your ${tier ? esc(tier.toLowerCase()) + ' ' : ''}ticket is`} confirmed. Stripe sends the payment receipt separately.`) +
+        ticketBlock(g.id) +
         p(`Here is what is waiting for you:`) +
         `<ul style="margin:0 0 18px;padding-left:20px;font-size:15.5px;line-height:1.5;color:#D9D2C5">${list}</ul>` +
         (g.result ? p(`You told us the result you want from the day: <em style="color:#fff">“${esc(g.result)}”</em>. We will hold you to it.`) : '') +
@@ -123,12 +136,15 @@ export function buildEmail(stage: EmailStage, g: Pick<Guest, 'name' | 'qty' | 't
     subject: `Today: ${EVENT.name}`,
     html: shell(`Today is the day, ${n}.`,
       p(`We open the doors at ${esc(VENUE.name)} and start at ${esc(EVENT.startTime || 'the morning')}. The map is below.`) +
+      ticketBlock(g.id) +
       p(`See it. Say it. Become it. We will see you there.`)),
   }
 }
 
 /** Sends one email. The idempotency key stops a double send if two requests race. */
-export async function sendEmail(to: string, subject: string, html: string, idempotencyKey?: string): Promise<{ ok: boolean; error?: string }> {
+export interface Attachment { filename: string; content: string /* base64 */ }
+
+export async function sendEmail(to: string, subject: string, html: string, idempotencyKey?: string, attachments?: Attachment[]): Promise<{ ok: boolean; error?: string }> {
   const key = process.env.RESEND_API_KEY
   const from = process.env.EMAIL_FROM
   if (!key || !from) return { ok: false, error: 'Email is not set up (RESEND_API_KEY or EMAIL_FROM missing).' }
@@ -140,7 +156,7 @@ export async function sendEmail(to: string, subject: string, html: string, idemp
         'Content-Type': 'application/json',
         ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}),
       },
-      body: JSON.stringify({ from, to: [to], subject, html, reply_to: EVENT.contactEmail }),
+      body: JSON.stringify({ from, to: [to], subject, html, reply_to: EVENT.contactEmail, ...(attachments?.length ? { attachments } : {}) }),
     })
     if (!res.ok) {
       const t = await res.text().catch(() => '')
@@ -161,5 +177,17 @@ export function buildWaitlistEmail(name: string): { subject: string; html: strin
     html: shell(`You are on the list, ${esc(name.split(' ')[0] || 'there')}.`,
       p('Thank you for saving your spot. Seats open very soon and you will be among the first to hear, with the link to book.') +
       p('Want to come with a friend? Bring them along: the day is better shared.')),
+  }
+}
+
+/** The ticket PDF as an email attachment. Null if it cannot be made (the email still goes, with the link and QR). */
+export async function ticketAttachment(g: Pick<Guest, 'id' | 'name' | 'qty' | 'tier'>): Promise<Attachment | null> {
+  if (!process.env.ADMIN_SECRET) return null
+  try {
+    const bytes = await ticketPdf(g)
+    return { filename: 'i-am-unstoppable-ticket.pdf', content: Buffer.from(bytes).toString('base64') }
+  } catch (err) {
+    console.error('[unstoppable] ticket pdf failed', err)
+    return null
   }
 }
