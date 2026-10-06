@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { currentAdmin } from '../../lib/admin-auth'
+import { currentAdmin, isOwner, listAddedAdmins, listInvites, ownerEmails } from '../../lib/admin-auth'
 import { listGuests, STAGES, type Guest } from '../../lib/guests'
 import { buildEmail, dueAt, STAGE_INFO } from '../../lib/emails'
 import { EVENT, TIERS, dateLabel } from '../config'
@@ -45,6 +45,12 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   } catch (err) {
     console.error('[unstoppable] admin could not read the event store', err)
   }
+  const canManage = isOwner(me)
+  const [added, invites] = await Promise.all([
+    listAddedAdmins().catch(() => []),
+    canManage ? listInvites().catch(() => []) : Promise.resolve([]),
+  ])
+  const team = { owners: ownerEmails(), added, invites: invites.map(i => ({ id: i.id, createdAt: i.createdAt, expiresAt: i.expiresAt, sends: i.sends })), canManage }
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://unstoppable.events'
 
   const emails: EmailCard[] = STAGES.map(s => ({
@@ -73,6 +79,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       settings={settings}
       siteUrl={siteUrl}
       storeOk={storeReady()}
+      team={team}
     />
   )
 }

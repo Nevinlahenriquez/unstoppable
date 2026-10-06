@@ -36,6 +36,8 @@ export interface Guest {
   challenge: string
   result: string
   ref: string
+  /** Fully refunded in Stripe: not a ticket any more (no entry, no seat, no emails). */
+  refunded: boolean
   checkedIn: string
   /** Seats of this order already through the door (one QR admits all its seats, one scan each). */
   checkedInCount: number
@@ -48,6 +50,22 @@ export function stripe(): Stripe | null {
 }
 
 const clip = (s: unknown, n = 480) => String(s ?? '').trim().slice(0, n)
+
+/** Every read of a payment expands its charge, because that is where a refund shows. */
+export const WITH_CHARGE = ['latest_charge']
+
+/**
+ * True when the money went back. A refund leaves the PaymentIntent "succeeded",
+ * so the status alone still reads as paid; the charge says what was refunded.
+ * A PARTIAL refund (a discount after the fact) keeps the ticket. Only a full one
+ * cancels it. Unexpanded charge = cannot tell = treated as not refunded, which is
+ * why every read here expands it.
+ */
+export function isRefunded(pi: Stripe.PaymentIntent): boolean {
+  const c = pi.latest_charge
+  if (!c || typeof c === 'string') return false
+  return c.refunded || (c.amount_refunded > 0 && c.amount_refunded >= (c.amount_captured || c.amount))
+}
 
 export function toGuest(pi: Stripe.PaymentIntent): Guest {
   const m = pi.metadata ?? {}
@@ -68,6 +86,7 @@ export function toGuest(pi: Stripe.PaymentIntent): Guest {
     challenge: m.challenge || '',
     result: m.result || '',
     ref: m.ref || '',
+    refunded: isRefunded(pi),
     checkedIn: m.checked_in || '',
     checkedInCount: m.checked_in_n ? parseInt(m.checked_in_n, 10) || 0 : m.checked_in ? Math.max(1, parseInt(m.qty ?? '1', 10) || 1) : 0,
     sent,
@@ -82,6 +101,7 @@ export async function syncGuest(s: Stripe, pi: Stripe.PaymentIntent, session?: S
   const d = cs.customer_details
   const field = (k: string) => cs.custom_fields?.find(f => f.key === k)?.text?.value ?? ''
   return s.paymentIntents.update(pi.id, {
+    expand: WITH_CHARGE,
     metadata: {
       synced: '1',
       name: clip(d?.individual_name || d?.name, 200),
@@ -95,7 +115,7 @@ export async function syncGuest(s: Stripe, pi: Stripe.PaymentIntent, session?: S
   })
 }
 
-/** Every paid order for this event, newest first, with details synced. Null when Stripe is not connected. */
+/** Every paid, not refunded order for this event, newest first, with details synced. Null when Stripe is not connected. */
 export async function listGuests(): Promise<Guest[] | null> {
   const s = stripe()
   if (!s) return null
@@ -105,9 +125,10 @@ export async function listGuests(): Promise<Guest[] | null> {
     const res = await s.paymentIntents.search({
       query: `metadata['event']:'${EVENT_KEY}' AND status:'succeeded'`,
       limit: 100,
+      expand: ['data.latest_charge'],
       ...(page ? { page } : {}),
     })
-    out.push(...res.data)
+    out.push(...res.data.filter(pi => !isRefunded(pi)))
     if (!res.has_more || !res.next_page) break
     page = res.next_page
   }
@@ -120,12 +141,13 @@ export async function setMeta(id: string, meta: Record<string, string>): Promise
   if (!s || !/^pi_[A-Za-z0-9]+$/.test(id)) return null
   const pi = await s.paymentIntents.retrieve(id)
   if (pi.metadata?.event !== EVENT_KEY) return null
-  return toGuest(await s.paymentIntents.update(id, { metadata: meta }))
+  return toGuest(await s.paymentIntents.update(id, { metadata: meta, expand: WITH_CHARGE }))
 }
 
+/** A paid order of this event (check .refunded before treating it as a ticket), or null. */
 export async function getGuest(id: string): Promise<Guest | null> {
   const s = stripe()
   if (!s || !/^pi_[A-Za-z0-9]+$/.test(id)) return null
-  const pi = await s.paymentIntents.retrieve(id)
-  return pi.metadata?.event === EVENT_KEY ? toGuest(pi) : null
+  const pi = await s.paymentIntents.retrieve(id, { expand: WITH_CHARGE })
+  return pi.metadata?.event === EVENT_KEY && pi.status === 'succeeded' ? toGuest(pi) : null
 }
