@@ -23,6 +23,7 @@ export async function admit(code: unknown, by = 'door'): Promise<AdmitResult> {
   if (isSample(ref.id)) return { ok: false, status: 'invalid', error: 'This is the sample ticket from a test email. Not valid at the door.' }
   const g = await getGuest(ref.id).catch(() => null)
   if (!g) return { ok: false, status: 'invalid', error: 'No paid order found for this ticket.' }
+  if (g.refunded) return { ok: false, status: 'invalid', error: 'This ticket was refunded, so it is not valid.' }
   if (ref.seat != null && ref.seat > g.qty) return { ok: false, status: 'invalid', error: 'This seat is not part of the order.' }
 
   const used = await usedSeats(g.id).catch(() => new Map<number, string>())

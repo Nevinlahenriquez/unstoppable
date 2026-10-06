@@ -12,6 +12,7 @@ export async function POST(req: NextRequest) {
   if (b.action === 'checkin' || b.action === 'uncheck') {
     const cur = await getGuest(id)
     if (!cur) return NextResponse.json({ ok: false, error: 'Guest not found.' }, { status: 404 })
+    if (b.action === 'checkin' && cur.refunded) return NextResponse.json({ ok: false, error: 'This order was refunded, so it cannot be checked in.' }, { status: 409 })
     // The seat files are the truth at the door; Stripe keeps a copy for this list.
     if (b.action === 'checkin') {
       for (let n = 1; n <= cur.qty; n++) {
@@ -25,6 +26,7 @@ export async function POST(req: NextRequest) {
   if (b.action === 'resend' && STAGES.includes(b.stage as EmailStage)) {
     const g = await getGuest(id)
     if (!g) return NextResponse.json({ ok: false, error: 'Guest not found.' }, { status: 404 })
+    if (g.refunded) return NextResponse.json({ ok: false, error: 'This order was refunded. No emails go to it.' }, { status: 409 })
     const r = await sendStage(g, b.stage as EmailStage, true)
     return NextResponse.json(r, { status: r.ok ? 200 : 502 })
   }

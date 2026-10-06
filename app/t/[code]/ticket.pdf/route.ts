@@ -7,7 +7,7 @@ import { readCode, ticketPdf, isSample, sampleGuest } from '../../../../lib/tick
 export async function GET(_req: Request, { params }: { params: Promise<{ code: string }> }) {
   const ref = readCode((await params).code)
   const g = !ref ? null : isSample(ref.id) ? sampleGuest : await getGuest(ref.id).catch(() => null)
-  if (!g || !ref || (ref.seat != null && ref.seat > g.qty)) return new NextResponse('Ticket not found.', { status: 404 })
+  if (!g || !ref || ('refunded' in g && g.refunded) || (ref.seat != null && ref.seat > g.qty)) return new NextResponse('Ticket not found.', { status: 404 })
   const pdf = await ticketPdf(g, ref.seat ?? undefined)
   return new NextResponse(new Uint8Array(pdf), { headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': 'inline; filename="i-am-unstoppable-ticket.pdf"', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex' } })
 }

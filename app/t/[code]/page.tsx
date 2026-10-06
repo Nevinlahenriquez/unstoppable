@@ -20,7 +20,8 @@ export default async function TicketPage({ params }: { params: Promise<{ code: s
   const ref = readCode(code)
   const sample = isSample(ref?.id)
   const g = !ref ? null : sample ? { ...sampleGuest } : await getGuest(ref.id).catch(() => null)
-  const valid = g && ref && (ref.seat == null || ref.seat <= g.qty)
+  const refunded = !!g && 'refunded' in g && g.refunded
+  const valid = g && ref && !refunded && (ref.seat == null || ref.seat <= g.qty)
   const seats = valid ? (ref!.seat != null ? [ref!.seat] : Array.from({ length: g!.qty }, (_, i) => i + 1)) : []
   const used = valid && !sample ? await usedSeats(g!.id).catch(() => new Map<number, string>()) : new Map<number, string>()
   const cards = valid ? await Promise.all(seats.map(async n => ({ n, svg: await qrSvg(g!.id, n), at: used.get(n) ?? '' }))) : []
@@ -31,7 +32,9 @@ export default async function TicketPage({ params }: { params: Promise<{ code: s
       <div style={{ width: '100%', maxWidth: 400, border: '1px solid rgba(227,174,69,.5)', borderRadius: 6, padding: '28px 22px', background: '#0D0C0A', textAlign: 'center' }}>
         <p style={{ margin: '0 0 8px', fontSize: 12, fontWeight: 700, letterSpacing: '.16em', textTransform: 'uppercase', color: gold }}>{EVENT.city} · Live event</p>
         <h1 style={{ margin: '0 0 4px', fontFamily: 'var(--vv-display), Impact, sans-serif', fontWeight: 400, textTransform: 'uppercase', fontSize: 34, lineHeight: 1.1 }}>{EVENT.name}</h1>
-        {!valid ? (
+        {refunded ? (
+          <p style={{ margin: '18px 0 0', color: '#F2B8A0', lineHeight: 1.6 }}>This ticket was refunded, so it is no longer valid. Questions? Write to <a href={`mailto:${EVENT.contactEmail}`} style={{ color: gold }}>{EVENT.contactEmail}</a>.</p>
+        ) : !valid ? (
           <p style={{ margin: '18px 0 0', color: '#F2B8A0', lineHeight: 1.6 }}>We could not find this ticket. Check the link in your email, or write to <a href={`mailto:${EVENT.contactEmail}`} style={{ color: gold }}>{EVENT.contactEmail}</a>.</p>
         ) : (
           <>
