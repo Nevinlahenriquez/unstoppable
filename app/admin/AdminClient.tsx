@@ -6,9 +6,10 @@ import type { EmailStage, Guest } from '../../lib/guests'
 import { ADMIN_CSS } from './styles'
 import type { Referrer, ReferralSettings, Registration } from '../../lib/referrals'
 import ReferralsTab from './ReferralsTab'
+import TeamTab, { type TeamData } from './TeamTab'
 
 export interface EmailCard { stage: EmailStage; label: string; when: string; dueLabel: string; subject: string; html: string }
-type Tab = 'overview' | 'guests' | 'referrals' | 'emails'
+type Tab = 'overview' | 'guests' | 'referrals' | 'emails' | 'team'
 
 const STAGE_SHORT: Record<EmailStage, string> = { confirmation: 'Confirmation', d7: '1 week', d1: '1 day', day: 'Day of', after: 'Thank you' }
 const when = (iso: string) => new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Makassar' })
@@ -30,6 +31,7 @@ export default function AdminClient(props: {
   registrations: Registration[]
   siteUrl: string
   storeOk: boolean
+  team: TeamData
 }) {
   const { me, loadError, emails, event, tiers, salesOpen, stripeConnected, emailReady, soldElsewhere } = props
   const router = useRouter()
@@ -102,7 +104,7 @@ export default function AdminClient(props: {
             </form>
           </div>
           <nav className="ad-tabs" role="tablist">
-            {([['overview', 'Overview'], ['guests', `Guests (${guests.length})`], ['referrals', `Referrals (${props.referrers.length})`], ['emails', 'Emails']] as [Tab, string][]).map(([k, l]) => (
+            {([['overview', 'Overview'], ['guests', `Guests (${guests.length})`], ['referrals', `Referrals (${props.referrers.length})`], ['emails', 'Emails'], ['team', 'Team']] as [Tab, string][]).map(([k, l]) => (
               <button key={k} role="tab" aria-selected={tab === k} className="ad-tab" onClick={() => setTab(k)}>{l}</button>
             ))}
           </nav>
@@ -221,6 +223,8 @@ export default function AdminClient(props: {
         {tab === 'referrals' && (
           <ReferralsTab referrers={props.referrers} settings={props.settings} registrations={props.registrations} guests={guests} siteUrl={props.siteUrl} storeOk={props.storeOk} />
         )}
+
+        {tab === 'team' && <TeamTab team={props.team} me={me} storeOk={props.storeOk} />}
 
         {tab === 'emails' && (
           <>

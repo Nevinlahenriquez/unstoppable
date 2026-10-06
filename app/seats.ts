@@ -1,6 +1,7 @@
 import Stripe from 'stripe'
 import { EVENT, TIERS, MAX_PER_ORDER } from './config'
 import { seatsSoldElsewhere } from './sales'
+import { isRefunded } from '../lib/guests'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SEATS. Stripe is the ticket ledger: every paid ticket is a succeeded
@@ -39,9 +40,11 @@ export async function seatsSold(): Promise<{ total: number; byTier: Record<strin
       const res = await stripe.paymentIntents.search({
         query: `metadata['event']:'${EVENT_KEY}' AND status:'succeeded'`,
         limit: 100,
+        expand: ['data.latest_charge'],
         ...(page ? { page } : {}),
       })
-      for (const pi of res.data) {
+      // A fully refunded order gives its seats back.
+      for (const pi of res.data.filter(p => !isRefunded(p))) {
         const q = Math.max(1, parseInt(pi.metadata?.qty ?? '1', 10) || 1)
         total += q
         const t = pi.metadata?.tier || 'unknown'
