@@ -76,13 +76,15 @@ function firstName(g: Pick<Guest, 'name'>) {
   return esc(g.name.split(' ')[0] || 'there')
 }
 
-function ticketBlock(id?: string): string {
+function ticketBlock(id?: string, qty = 1): string {
   if (!id || !process.env.ADMIN_SECRET) return ''
   const url = ticketUrl(id)
+  const codes = Array.from({ length: qty }, (_, i) => i + 1).map(n => `${qty > 1 ? `<p style="margin:${n > 1 ? '18px' : '0'} 0 8px;font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#E3AE45">Seat ${n} of ${qty}</p>` : ''}
+<img src="cid:ticket-qr-${n}" width="200" height="200" alt="QR code for seat ${n}" style="display:block;width:200px;height:200px;background:#fff;border-radius:4px;margin:0 auto">`).join('')
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:6px 0 20px;border:1px solid rgba(227,174,69,.45);border-radius:6px"><tr><td align="center" style="padding:22px 16px">
-<p style="margin:0 0 12px;font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#E3AE45">Your ticket</p>
-<img src="cid:ticket-qr" width="200" height="200" alt="Your ticket QR code" style="display:block;width:200px;height:200px;background:#fff;border-radius:4px">
-<p style="margin:14px 0 14px;font-size:14px;line-height:1.5;color:#B5AD9F">Show this code at the door. It is also attached as a PDF.</p>
+<p style="margin:0 0 12px;font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#E3AE45">Your ${qty > 1 ? 'tickets' : 'ticket'}</p>
+${codes}
+<p style="margin:14px 0 14px;font-size:14px;line-height:1.5;color:#B5AD9F">${qty > 1 ? 'One code per person, each valid for one entry. Forward a seat to whoever is coming with you.' : 'Show this code at the door. It is valid for one entry.'} ${qty > 1 ? 'They are' : 'It is'} also attached as a PDF.</p>
 <a href="${esc(url)}" style="display:inline-block;background:#E3AE45;color:#000;font-weight:800;font-size:14.5px;text-decoration:none;padding:13px 22px;border-radius:3px">Open your ticket</a>
 </td></tr></table>`
 }
@@ -97,7 +99,7 @@ export function buildEmail(stage: EmailStage, g: Pick<Guest, 'name' | 'qty' | 't
       subject: `You are in: ${EVENT.name}, ${dateLabel()}`,
       html: shell(`You are in, ${n}.`,
         p(`${g.qty > 1 ? `Your ${g.qty} ${tier ? esc(tier.toLowerCase()) + ' ' : ''}tickets are` : `Your ${tier ? esc(tier.toLowerCase()) + ' ' : ''}ticket is`} confirmed. Stripe sends the payment receipt separately.`) +
-        ticketBlock(g.id) +
+        ticketBlock(g.id, g.qty) +
         p(`Here is what is waiting for you:`) +
         `<ul style="margin:0 0 18px;padding-left:20px;font-size:15.5px;line-height:1.5;color:#D9D2C5">${list}</ul>` +
         (g.result ? p(`You told us the result you want from the day: <em style="color:#fff">“${esc(g.result)}”</em>. We will hold you to it.`) : '') +
@@ -136,7 +138,7 @@ export function buildEmail(stage: EmailStage, g: Pick<Guest, 'name' | 'qty' | 't
     subject: `Today: ${EVENT.name}`,
     html: shell(`Today is the day, ${n}.`,
       p(`We open the doors at ${esc(VENUE.name)} and start at ${esc(EVENT.startTime || 'the morning')}. The map is below.`) +
-      ticketBlock(g.id) +
+      ticketBlock(g.id, g.qty) +
       p(`See it. Say it. Become it. We will see you there.`)),
   }
 }
@@ -181,7 +183,7 @@ export function buildWaitlistEmail(name: string): { subject: string; html: strin
 }
 
 /**
- * What a ticket email carries: the QR code INLINE (cid:ticket-qr, so it shows
+ * What a ticket email carries: one QR per seat INLINE (cid:ticket-qr-N, so they show
  * even when the mail app blocks outside images and before the site is live)
  * and the PDF. Whatever cannot be made is left out; the email still goes.
  */
@@ -189,7 +191,9 @@ export async function ticketAttachments(g: Pick<Guest, 'id' | 'name' | 'qty' | '
   if (!process.env.ADMIN_SECRET) return []
   const out: Attachment[] = []
   try {
-    out.push({ filename: 'ticket-qr.png', content: Buffer.from(await qrPng(g.id, 400)).toString('base64'), content_id: 'ticket-qr' })
+    for (let n = 1; n <= g.qty; n++) {
+      out.push({ filename: `ticket-seat-${n}.png`, content: Buffer.from(await qrPng(g.id, n, 400)).toString('base64'), content_id: `ticket-qr-${n}` })
+    }
   } catch (err) { console.error('[unstoppable] ticket qr failed', err) }
   try {
     out.push({ filename: 'i-am-unstoppable-ticket.pdf', content: Buffer.from(await ticketPdf(g)).toString('base64') })

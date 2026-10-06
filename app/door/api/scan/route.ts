@@ -8,6 +8,6 @@ import { admit } from '../../../../lib/admit'
 export async function POST(req: NextRequest) {
   if (!(await isDoorStaff())) return NextResponse.json({ ok: false, status: 'auth', error: 'Please enter the door password again.' }, { status: 401 })
   const { code } = (await req.json().catch(() => ({}))) as { code?: string }
-  const r = await admit(code)
+  const r = await admit(code, 'door')
   return NextResponse.json(r, { status: r.status === 'error' ? 502 : 200 })
 }

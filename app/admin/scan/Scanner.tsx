@@ -81,9 +81,9 @@ export default function Scanner({ api = '/admin/api/scan', home = '/admin', door
           <div role="alert" style={{ position: 'absolute', inset: 0, background: tone, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, textAlign: 'center' }}>
             <p style={{ margin: 0, fontFamily: 'var(--vv-display), Impact, sans-serif', fontSize: 40, textTransform: 'uppercase' }}>{result.ok ? 'Welcome in' : result.status === 'already' ? 'Already in' : 'Not valid'}</p>
             {result.guest && <p style={{ margin: '10px 0 0', fontSize: 22, fontWeight: 700 }}>{result.guest.name || 'Guest'}</p>}
-            {result.ok && result.guest && result.guest.qty > 1 && <p style={{ margin: '6px 0 0', fontSize: 17 }}>Seat {result.seat} of {result.guest.qty}</p>}
+            {result.seat && result.guest && result.guest.qty > 1 && <p style={{ margin: '6px 0 0', fontSize: 17 }}>Seat {result.seat} of {result.guest.qty}</p>}
             {!result.ok && <p style={{ margin: '8px 0 0', fontSize: 16 }}>{result.error}</p>}
-            {result.status === 'already' && result.guest?.checkedIn && <p style={{ margin: '6px 0 0', fontSize: 14 }}>First scanned {new Date(result.guest.checkedIn).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Makassar' })} Bali time</p>}
+            {result.status === 'already' && !result.seat && result.guest?.checkedIn && <p style={{ margin: '6px 0 0', fontSize: 14 }}>First scanned {new Date(result.guest.checkedIn).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Makassar' })} Bali time</p>}
             <button className="ad-btn" style={{ background: '#fff', marginTop: 22, minWidth: 180 }} onClick={next}>Scan next</button>
           </div>
         )}
