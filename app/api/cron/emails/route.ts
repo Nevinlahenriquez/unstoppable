@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { listGuests } from '../../../../lib/guests'
 import { deliverDue } from '../../../../lib/deliver'
+import { backupMissing } from '../../../../lib/backup'
 
 // Hourly (vercel.json). Sends any confirmation that the thank-you page missed,
 // and each reminder once it is due. Every send is recorded on the order, so
@@ -15,5 +16,6 @@ export async function GET(req: NextRequest) {
   const guests = await listGuests()
   if (!guests) return NextResponse.json({ ok: true, skipped: 'Stripe not connected' })
   const sent = await deliverDue(guests)
-  return NextResponse.json({ ok: true, guests: guests.length, sent })
+  const backedUp = await backupMissing(guests).catch(() => -1)
+  return NextResponse.json({ ok: true, guests: guests.length, sent, backedUp })
 }

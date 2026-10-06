@@ -257,3 +257,19 @@ export function timeLabel(): string {
 export function money(n: number): string {
   return `$${n}`
 }
+
+// THE GROUP DEAL: bring two friends. Every full group of `qty` seats in one
+// order costs `total` together (both tiers), extra seats are normal price.
+// The friend discount from a referral code never stacks on group seats.
+// Set qty to 0 to switch the deal off.
+export const GROUP_DEAL = { qty: 3, total: 400, label: '3 seats for $400' }
+
+/** What an order costs, in whole dollars. Used by the page AND the server. */
+export function orderTotal(price: number, qty: number, friendOff = 0): { total: number; groups: number; perSeat: number } {
+  const perSeat = Math.max(1, price - Math.max(0, friendOff))
+  const plain = perSeat * qty
+  if (!GROUP_DEAL.qty) return { total: plain, groups: 0, perSeat }
+  const groups = Math.floor(qty / GROUP_DEAL.qty)
+  const withDeal = groups * GROUP_DEAL.total + (qty - groups * GROUP_DEAL.qty) * perSeat
+  return withDeal < plain ? { total: withDeal, groups, perSeat } : { total: plain, groups: 0, perSeat }
+}

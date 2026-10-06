@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { MyTicketButton } from '../components/MyTicket'
 import Image from 'next/image'
 import nevinPhoto from './nevin.jpg'
 import lukePhoto from './luke.jpg'
@@ -195,6 +196,7 @@ export default function EventClient({ stock }: { stock: Stock | null }) {
   return (
     <div className="vv" ref={root}>
       <div className="vv-progress" aria-hidden="true" />
+      <MyTicketButton />
       {/* ── Floating nav ────────────────────────────────────────────────── */}
       <header className={`vv-nav${scrolled ? ' vv-nav-on' : ''}`}>
         <span className="vv-logo">{EVENT.name}<i>.</i></span>

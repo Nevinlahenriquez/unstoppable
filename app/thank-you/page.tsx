@@ -5,6 +5,9 @@ import { EVENT_KEY } from '../seats'
 import { syncGuest, toGuest } from '../../lib/guests'
 import { sendStage } from '../../lib/deliver'
 import { getRegistration, saveRegistration } from '../../lib/referrals'
+import { ticketCode } from '../../lib/ticket'
+import { backupGuest } from '../../lib/backup'
+import { RememberTicket } from '../../components/MyTicket'
 
 // The page Stripe sends a buyer back to. It asks Stripe whether the session was
 // actually PAID before saying "you're in": the redirect alone proves nothing,
@@ -13,7 +16,7 @@ import { getRegistration, saveRegistration } from '../../lib/referrals'
 export const dynamic = 'force-dynamic'
 export const metadata: Metadata = { title: `Your ticket · ${EVENT.name}`, robots: { index: false, follow: false } }
 
-type Paid = { name: string; email: string; tier: string; amount: string; qty: number }
+type Paid = { name: string; email: string; tier: string; amount: string; qty: number; ticket: string }
 
 async function lookup(sessionId: string): Promise<Paid | null> {
   const secret = process.env.STRIPE_SECRET_KEY
@@ -23,12 +26,15 @@ async function lookup(sessionId: string): Promise<Paid | null> {
     if (s.payment_status !== 'paid' || s.metadata?.event !== EVENT_KEY) return null
     // Save who they are on the order and send the confirmation email, once.
     // A failure here never hides the ticket: the hourly cron catches it up.
+    let ticket = ''
     try {
       const stripe = new Stripe(secret)
       const piId = typeof s.payment_intent === 'string' ? s.payment_intent : s.payment_intent?.id
       if (piId) {
+        if (process.env.ADMIN_SECRET) ticket = ticketCode(piId)
         const pi = await syncGuest(stripe, await stripe.paymentIntents.retrieve(piId), s)
         await sendStage(toGuest(pi), 'confirmation')
+        await backupGuest(toGuest(pi)).catch(err => console.error('[unstoppable] backup failed', err))
         // Mark their form entry as paid, so the admin's waitlist stays honest.
         const reg = await getRegistration(String(s.metadata?.reg ?? ''))
         if (reg && reg.status !== 'paid') await saveRegistration({ ...reg, status: 'paid', paymentId: piId, paidAt: new Date().toISOString() })
@@ -42,6 +48,7 @@ async function lookup(sessionId: string): Promise<Paid | null> {
       tier: getTier(String(s.metadata?.tier))?.name || 'Ticket',
       qty: Math.max(1, parseInt(s.metadata?.qty ?? '1', 10) || 1),
       amount: s.amount_total != null ? `$${(s.amount_total / 100).toFixed(0)}` : '',
+      ticket,
     }
   } catch (err) {
     console.error('[unstoppable] could not read checkout session', err)
@@ -65,6 +72,11 @@ export default async function ThankYou({ searchParams }: { searchParams: Promise
               <div><dt>When</dt><dd>{dateLabel()} · {timeLabel()}</dd></div>
               <div><dt>Where</dt><dd>{VENUE.name}, {VENUE.area}{VENUE.address ? ` · ${VENUE.address}` : ''}{VENUE.mapsUrl ? <> · <a href={VENUE.mapsUrl} target="_blank" rel="noopener noreferrer">Google Maps</a></> : null}</dd></div>
             </dl>
+            {paid.ticket && (<>
+              <RememberTicket code={paid.ticket} />
+              <a className="vvt-ticket" href={`/t/${paid.ticket}`}>Show my ticket</a>
+              <p className="vvt-small">Your ticket is saved on this phone: open unstoppable.events again any time and tap “Your ticket”. It is in your email too.</p>
+            </>)}
             <p className="vvt-small">The full address, schedule and what to bring follow by email before the day. Questions: <a href={`mailto:${EVENT.contactEmail}`}>{EVENT.contactEmail}</a></p>
           </>
         ) : (
@@ -77,6 +89,7 @@ export default async function ThankYou({ searchParams }: { searchParams: Promise
         <a className="vvt-back" href="./">← Back to the event</a>
       </div>
       <style>{`
+        .vvt-ticket{display:inline-flex;align-items:center;min-height:48px;padding:0 22px;margin:4px 0 6px;background:#E3AE45;color:#000;font-weight:800;text-decoration:none;border-radius:3px}
         .vvt{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:40px 20px;background:radial-gradient(ellipse at 50% 0%,rgba(227,174,69,.3),transparent 60%),#000;font-family:var(--vv-body),system-ui,sans-serif;color:#fff}
         .vvt-card{max-width:560px;width:100%;background:#0D0C0A;border:1px solid rgba(227,174,69,.35);border-radius:6px;padding:40px 32px}
         .vvt-kicker{font-size:12.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#E3AE45;margin:0 0 14px}

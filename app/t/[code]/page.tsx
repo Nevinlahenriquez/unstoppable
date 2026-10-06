@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { EVENT, VENUE, dateLabel, timeLabel, getTier } from '../../config'
 import { getGuest } from '../../../lib/guests'
 import { qrSvg, readTicket, ticketCode } from '../../../lib/ticket'
+import { RememberTicket } from '../../../components/MyTicket'
 
 export const dynamic = 'force-dynamic'
 export const metadata: Metadata = { title: `Your ticket · ${EVENT.name}`, robots: { index: false, follow: false } }
@@ -20,6 +21,7 @@ export default async function TicketPage({ params }: { params: Promise<{ code: s
           <p style={{ margin: '18px 0 0', color: '#F2B8A0', lineHeight: 1.6 }}>We could not find this ticket. Check the link in your email, or write to <a href={`mailto:${EVENT.contactEmail}`} style={{ color: '#E3AE45' }}>{EVENT.contactEmail}</a>.</p>
         ) : (
           <>
+            <RememberTicket code={ticketCode(g.id)} />
             <p style={{ margin: '0 0 20px', color: '#B5AD9F', fontSize: 14 }}>{EVENT.subtitle}</p>
             <div style={{ background: '#fff', borderRadius: 6, padding: 10, width: 240, height: 240, margin: '0 auto' }} dangerouslySetInnerHTML={{ __html: svg }} />
             <p style={{ margin: '14px 0 20px', color: '#B5AD9F', fontSize: 14 }}>Show this code at the door.</p>
@@ -36,6 +38,7 @@ export default async function TicketPage({ params }: { params: Promise<{ code: s
               ))}
             </dl>
             <a href={`/t/${ticketCode(g.id)}/ticket.pdf`} style={{ display: 'inline-flex', marginTop: 22, minHeight: 46, alignItems: 'center', padding: '0 20px', background: '#E3AE45', color: '#000', fontWeight: 800, borderRadius: 3, textDecoration: 'none' }}>Download PDF</a>
+            <p style={{ margin: '14px 0 0', color: '#8E8576', fontSize: 13 }}>Saved on this phone. Tip: add this page to your home screen.</p>
             {VENUE.mapsUrl && <p style={{ margin: '14px 0 0' }}><a href={VENUE.mapsUrl} style={{ color: '#E3AE45', fontSize: 14 }}>Open the venue in Google Maps</a></p>}
           </>
         )}

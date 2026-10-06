@@ -6,7 +6,7 @@ import { loadStripe, type Stripe, type StripeEmbeddedCheckout } from '@stripe/st
 import { CalendarDays, Clock, MapPin, ShieldCheck, Utensils, Users, Lock } from 'lucide-react'
 import amaviLogo from '../amavi-logo.jpg'
 import amaviInterior from '../amavi-interior.webp'
-import { EVENT, VENUE, getTier, dateLabel, money, MAX_PER_ORDER, INCLUDED } from '../config'
+import { EVENT, VENUE, getTier, dateLabel, money, MAX_PER_ORDER, INCLUDED, GROUP_DEAL, orderTotal } from '../config'
 import type { Stock } from '../seats'
 import { SALES_CLOSED_MESSAGE } from '../sales'
 
@@ -59,6 +59,7 @@ export default function TicketsClient({ tierId, initialQty, stock, open }: { tie
     return () => clearTimeout(t)
   }, [ref])
   const unit = Math.max(1, tier.price - (refInfo?.discount ?? 0))
+  const price = orderTotal(tier.price, qty, refInfo?.discount ?? 0)
 
   useEffect(() => {
     if (!paying) return
@@ -169,8 +170,15 @@ export default function TicketsClient({ tierId, initialQty, stock, open }: { tie
             <div className="tk-perf" aria-hidden="true" />
             <div className="tk-total">
               <span>Total</span>
-              <b>{money(unit * qty)} <small>USD</small></b>
+              <b>{money(price.total)} <small>USD</small></b>
             </div>
+            {GROUP_DEAL.qty > 0 && (price.groups ? (
+              <p className="tk-deal">Group deal applied: {GROUP_DEAL.label}. You save {money(unit * qty - price.total)}.</p>
+            ) : qty < GROUP_DEAL.qty ? (
+              <p className="tk-deal">Bring friends: {GROUP_DEAL.label}.{' '}
+                <button type="button" disabled={paying || maxQty < GROUP_DEAL.qty} onClick={() => setQty(GROUP_DEAL.qty)}>Make it {GROUP_DEAL.qty}</button>
+              </p>
+            ) : null)}
           </div>
 
           {stock && (
@@ -232,7 +240,7 @@ export default function TicketsClient({ tierId, initialQty, stock, open }: { tie
       {/* Phone: total and the one action, always under the thumb. */}
       {!paying && !listed && !soldOut && (
         <div className="tk-bar">
-          <div><small>{qty > 1 ? `${qty} seats` : '1 seat'} · {tier.name}</small><b>{money(unit * qty)}</b></div>
+          <div><small>{qty > 1 ? `${qty} seats` : '1 seat'} · {tier.name}</small><b>{money(price.total)}</b></div>
           <button className="tk-btn" type="submit" form="tk-form" disabled={loading}>{open ? 'Continue →' : 'Join the list →'}</button>
         </div>
       )}
@@ -299,6 +307,9 @@ export default function TicketsClient({ tierId, initialQty, stock, open }: { tie
         .tk-trust{display:flex;align-items:center;gap:8px;margin:16px 0 0;font-size:13px;color:#8E8576}
         .tk-trust svg{color:#E3AE45}
         .tk-error{margin:14px 0 0;color:#F0B8A0}
+        .tk-deal{margin:12px 0 0;font-size:14.5px;line-height:1.5;color:#E3AE45;font-weight:600}
+        .tk-deal button{background:none;border:1px solid rgba(227,174,69,.55);color:#E3AE45;font:inherit;font-size:13.5px;font-weight:700;padding:6px 12px;margin-left:6px;border-radius:3px;cursor:pointer;min-height:36px}
+        .tk-deal button:disabled{opacity:.5;cursor:default}
         .tk-step-pay{padding:18px}
         .tk-step-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
         .tk-step-head .tk-kicker{margin:0}

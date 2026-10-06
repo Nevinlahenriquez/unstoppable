@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
-import { EVENT, getTier, tierOpen, dateLabel } from '../config'
+import { EVENT, getTier, tierOpen, dateLabel, orderTotal, GROUP_DEAL } from '../config'
 import { EVENT_KEY, MAX_PER_ORDER, stock } from '../seats'
 import { salesOpen, SALES_CLOSED_MESSAGE } from '../sales'
 import { storeReady } from '../../lib/store'
@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
   // A referral code can take money off each ticket, if the hosts set that rule.
   const settings = referrer ? await getSettings().catch(() => null) : null
   const off = referrer && settings ? Math.max(0, Math.min(tier.price - 1, Math.floor(settings.friendDiscount || 0))) : 0
-  const unit = tier.price - off
+  const price = orderTotal(tier.price, qty, off)
 
   const reg: Registration = { id: newId(), createdAt: new Date().toISOString(), status: 'started', tier: tier.id, qty, ...who, ref }
   if (storeReady()) await saveRegistration(reg).catch(err => console.error('[unstoppable] could not save registration', err))
@@ -130,13 +130,14 @@ export async function POST(req: NextRequest) {
       line_items: [{
         price_data: {
           currency: EVENT.currency,
-          unit_amount: unit * 100,
+          // ONE line for the whole order, so the group deal can price it.
+          unit_amount: price.total * 100,
           product_data: {
-            name: `${EVENT.name}, ${tier.name} ticket${off ? ` (friend of ${referrer!.name}, $${off} off)` : ''}`,
+            name: `${EVENT.name}, ${qty} × ${tier.name} ticket${qty > 1 ? 's' : ''}${price.groups ? ` (${GROUP_DEAL.label})` : ''}${off && !price.groups ? ` (friend of ${referrer!.name}, $${off} off)` : ''}`,
             description: `${dateLabel()} · ${EVENT.city}`,
           },
         },
-        quantity: qty,
+        quantity: 1,
       }],
       return_url: `${origin}${base}/thank-you?session_id={CHECKOUT_SESSION_ID}`,
       metadata: { event: EVENT_KEY, tier: tier.id, qty: String(qty), reg: reg.id, ref, name: who.name },
