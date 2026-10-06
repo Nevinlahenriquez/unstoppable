@@ -237,14 +237,6 @@ export default function TicketsClient({ tierId, initialQty, stock, open }: { tie
         </section>
       </div>
 
-      {/* Phone: total and the one action, always under the thumb. */}
-      {!paying && !listed && !soldOut && (
-        <div className="tk-bar">
-          <div><small>{qty > 1 ? `${qty} seats` : '1 seat'} · {tier.name}</small><b>{money(price.total)}</b></div>
-          <button className="tk-btn" type="submit" form="tk-form" disabled={loading}>{open ? 'Continue →' : 'Join the list →'}</button>
-        </div>
-      )}
-
       <style>{`
         .tk{min-height:100vh;background:radial-gradient(ellipse at 20% 0%,rgba(227,174,69,.18),transparent 55%),#050505;color:#F7F3EA;font-family:var(--vv-body),Inter,system-ui,sans-serif;padding:0 20px 60px}
         .tk *{box-sizing:border-box}
@@ -316,7 +308,6 @@ export default function TicketsClient({ tierId, initialQty, stock, open }: { tie
         .tk-change{background:none;border:1px solid rgba(227,174,69,.35);border-radius:4px;color:#F7D27A;font:600 13px/1 inherit;padding:10px 12px;cursor:pointer}
         .tk-loading{padding:30px 0;text-align:center}
         .tk-host{min-height:200px;border-radius:4px;overflow:hidden}
-        .tk-bar{display:none}
         .tk-fields{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:20px}
         .tk-fields label{display:grid;gap:6px;font-size:11.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#B5AD9F}
         .tk-fields .tk-wide{grid-column:1/-1}
@@ -327,12 +318,6 @@ export default function TicketsClient({ tierId, initialQty, stock, open }: { tie
         @media (max-width:900px){
           .tk-grid{grid-template-columns:1fr;margin-top:18px}
           .tk-pay{position:static}
-          .tk{padding-bottom:120px}
-          .tk-pay .tk-step:not(.tk-step-pay) .tk-btn{display:none}
-          .tk-bar{display:flex;position:fixed;left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom));z-index:50;align-items:center;justify-content:space-between;gap:12px;padding:10px 10px 10px 18px;border-radius:8px;background:rgba(8,8,8,.94);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid rgba(227,174,69,.45);box-shadow:0 20px 60px -10px rgba(0,0,0,.9)}
-          .tk-bar small{display:block;font-size:10.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#B5AD9F}
-          .tk-bar b{font-family:var(--vv-display),Impact,sans-serif;font-weight:400;font-size:30px;line-height:1;color:#F7D27A}
-          .tk-bar .tk-btn{margin:0;width:auto;min-height:54px;padding:0 20px;font-size:13px}
         }
         @media (max-width:560px){
           .tk{padding:0 14px 40px}
