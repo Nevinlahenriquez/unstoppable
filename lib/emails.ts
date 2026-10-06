@@ -23,6 +23,7 @@ export const STAGE_INFO: Record<EmailStage, { label: string; when: string }> = {
   d7: { label: 'One week to go', when: '7 days before, 10:00 Bali time' },
   d1: { label: 'See you tomorrow', when: 'The day before, 10:00 Bali time' },
   day: { label: 'Today is the day', when: 'The morning of, 07:00 Bali time' },
+  after: { label: 'Thank you (follow-up)', when: 'The day after, 10:00 Bali time' },
 }
 
 function eventDay(offsetDays: number, hhmm: string): Date | null {
@@ -37,6 +38,7 @@ export function dueAt(stage: EmailStage): Date | null {
   if (stage === 'd7') return eventDay(-7, '10:00')
   if (stage === 'd1') return eventDay(-1, '10:00')
   if (stage === 'day') return eventDay(0, '07:00')
+  if (stage === 'after') return eventDay(1, '10:00')
   return null
 }
 
@@ -105,6 +107,16 @@ export function buildEmail(stage: EmailStage, g: Pick<Guest, 'name' | 'qty' | 't
         p(`Tomorrow is the day. We start at ${esc(EVENT.startTime || 'the morning')} Bali time, so give yourself time to arrive, park and settle in before the start.`) +
         p(`Come rested, wear something comfortable, and bring an open mind. Everything else (the workbook, the pen and the food) is ready for you.`) +
         p(`${seats === 'your seat' ? 'Your seat is' : `Your ${seats} are`} waiting.`)),
+    }
+  }
+  if (stage === 'after') {
+    return {
+      subject: `Thank you, ${g.name.split(' ')[0] || 'friend'}: ${EVENT.name}`,
+      html: shell(`Thank you, ${n}.`,
+        p(`Thank you for being part of ${esc(EVENT.name)}. A room is only as strong as the people in it, and you made it what it was.`) +
+        (g.result ? p(`Before the day you told us the result you wanted: <em style="color:#fff">“${esc(g.result)}”</em>. Keep that sentence where you will see it every morning this week.`) : '') +
+        p(`One thing to do today: take the one sentence you said out loud and act on it once, however small. Momentum starts in the first 48 hours.`) +
+        p(`Reply to this email and tell us your biggest takeaway. Luke and Nevin read every reply.`)),
     }
   }
   return {

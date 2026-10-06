@@ -20,7 +20,11 @@ export function owed(g: Guest, now = new Date()): EmailStage[] {
     if (g.sent[s]) continue
     if (s === 'confirmation') { out.push(s); continue }
     const due = dueAt(s)
-    if (!due || now < due || (end && now > end)) continue
+    if (!due || now < due) continue
+    if (s === 'after') {
+      // The follow-up goes out after the event, never more than a week late.
+      if (now.getTime() - due.getTime() > 7 * 864e5) continue
+    } else if (end && now > end) continue
     // Bought after this reminder was due: the confirmation already covers it.
     if (new Date(g.createdAt) >= due) continue
     out.push(s)

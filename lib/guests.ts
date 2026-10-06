@@ -18,8 +18,8 @@ import { EVENT_KEY } from '../app/seats'
 // every write under that, or Stripe refuses the whole update.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type EmailStage = 'confirmation' | 'd7' | 'd1' | 'day'
-export const STAGES: EmailStage[] = ['confirmation', 'd7', 'd1', 'day']
+export type EmailStage = 'confirmation' | 'd7' | 'd1' | 'day' | 'after'
+export const STAGES: EmailStage[] = ['confirmation', 'd7', 'd1', 'day', 'after']
 
 export interface Guest {
   id: string

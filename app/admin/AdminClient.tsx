@@ -10,7 +10,7 @@ import ReferralsTab from './ReferralsTab'
 export interface EmailCard { stage: EmailStage; label: string; when: string; dueLabel: string; subject: string; html: string }
 type Tab = 'overview' | 'guests' | 'referrals' | 'emails'
 
-const STAGE_SHORT: Record<EmailStage, string> = { confirmation: 'Confirmation', d7: '1 week', d1: '1 day', day: 'Day of' }
+const STAGE_SHORT: Record<EmailStage, string> = { confirmation: 'Confirmation', d7: '1 week', d1: '1 day', day: 'Day of', after: 'Thank you' }
 const when = (iso: string) => new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Makassar' })
 const waLink = (phone: string) => `https://wa.me/${phone.replace(/[^0-9]/g, '')}`
 
