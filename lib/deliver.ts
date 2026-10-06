@@ -1,4 +1,4 @@
-import { buildEmail, dueAt, eventEnd, sendEmail, ticketAttachment } from './emails'
+import { buildEmail, dueAt, eventEnd, sendEmail, ticketAttachments } from './emails'
 import { setMeta, STAGES, type EmailStage, type Guest } from './guests'
 
 /** Sends one stage to one guest and records it on their order. `force` resends. */
@@ -7,8 +7,8 @@ export async function sendStage(g: Guest, stage: EmailStage, force = false): Pro
   if (g.sent[stage] && !force) return { ok: true }
   const { subject, html } = buildEmail(stage, g)
   const key = force ? `${stage}-${g.id}-${Date.now()}` : `${stage}-${g.id}`
-  const pdf = stage === 'confirmation' || stage === 'day' ? await ticketAttachment(g) : null
-  const r = await sendEmail(g.email, subject, html, key, pdf ? [pdf] : undefined)
+  const files = stage === 'confirmation' || stage === 'day' ? await ticketAttachments(g) : []
+  const r = await sendEmail(g.email, subject, html, key, files.length ? files : undefined)
   if (r.ok) await setMeta(g.id, { [`sent_${stage}`]: new Date().toISOString() }).catch(() => null)
   return r
 }

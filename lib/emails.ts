@@ -1,6 +1,6 @@
 import { EVENT, VENUE, INCLUDED, dateLabel, timeLabel, getTier } from '../app/config'
 import type { EmailStage, Guest } from './guests'
-import { ticketPdf, ticketUrl } from './ticket'
+import { qrPng, ticketPdf, ticketUrl } from './ticket'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GUEST EMAILS. Four automatic emails, sent through Resend from
@@ -81,7 +81,7 @@ function ticketBlock(id?: string): string {
   const url = ticketUrl(id)
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:6px 0 20px;border:1px solid rgba(227,174,69,.45);border-radius:6px"><tr><td align="center" style="padding:22px 16px">
 <p style="margin:0 0 12px;font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#E3AE45">Your ticket</p>
-<img src="${esc(url)}/qr.png" width="200" height="200" alt="Your ticket QR code" style="display:block;width:200px;height:200px;background:#fff;border-radius:4px">
+<img src="cid:ticket-qr" width="200" height="200" alt="Your ticket QR code" style="display:block;width:200px;height:200px;background:#fff;border-radius:4px">
 <p style="margin:14px 0 14px;font-size:14px;line-height:1.5;color:#B5AD9F">Show this code at the door. It is also attached as a PDF.</p>
 <a href="${esc(url)}" style="display:inline-block;background:#E3AE45;color:#000;font-weight:800;font-size:14.5px;text-decoration:none;padding:13px 22px;border-radius:3px">Open your ticket</a>
 </td></tr></table>`
@@ -142,7 +142,7 @@ export function buildEmail(stage: EmailStage, g: Pick<Guest, 'name' | 'qty' | 't
 }
 
 /** Sends one email. The idempotency key stops a double send if two requests race. */
-export interface Attachment { filename: string; content: string /* base64 */ }
+export interface Attachment { filename: string; content: string /* base64 */; content_id?: string }
 
 export async function sendEmail(to: string, subject: string, html: string, idempotencyKey?: string, attachments?: Attachment[]): Promise<{ ok: boolean; error?: string }> {
   const key = process.env.RESEND_API_KEY
@@ -180,14 +180,19 @@ export function buildWaitlistEmail(name: string): { subject: string; html: strin
   }
 }
 
-/** The ticket PDF as an email attachment. Null if it cannot be made (the email still goes, with the link and QR). */
-export async function ticketAttachment(g: Pick<Guest, 'id' | 'name' | 'qty' | 'tier'>): Promise<Attachment | null> {
-  if (!process.env.ADMIN_SECRET) return null
+/**
+ * What a ticket email carries: the QR code INLINE (cid:ticket-qr, so it shows
+ * even when the mail app blocks outside images and before the site is live)
+ * and the PDF. Whatever cannot be made is left out; the email still goes.
+ */
+export async function ticketAttachments(g: Pick<Guest, 'id' | 'name' | 'qty' | 'tier'>): Promise<Attachment[]> {
+  if (!process.env.ADMIN_SECRET) return []
+  const out: Attachment[] = []
   try {
-    const bytes = await ticketPdf(g)
-    return { filename: 'i-am-unstoppable-ticket.pdf', content: Buffer.from(bytes).toString('base64') }
-  } catch (err) {
-    console.error('[unstoppable] ticket pdf failed', err)
-    return null
-  }
+    out.push({ filename: 'ticket-qr.png', content: Buffer.from(await qrPng(g.id, 400)).toString('base64'), content_id: 'ticket-qr' })
+  } catch (err) { console.error('[unstoppable] ticket qr failed', err) }
+  try {
+    out.push({ filename: 'i-am-unstoppable-ticket.pdf', content: Buffer.from(await ticketPdf(g)).toString('base64') })
+  } catch (err) { console.error('[unstoppable] ticket pdf failed', err) }
+  return out
 }

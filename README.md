@@ -54,12 +54,14 @@ ticket already sold from the counter.
 
 - **/admin** is the hosts' dashboard: Overview, Guests (search, check-in, resend, CSV) and Emails (preview, send a test, what was sent to whom). Sign-in is a link emailed to an address in `ADMIN_EMAILS`.
 - **No database.** Stripe is the ledger. Checkout asks for name, email and phone (required) plus business name, website or Instagram, biggest challenge and the result wanted (optional); `lib/guests.ts` copies them onto the PaymentIntent's metadata.
+- **/door** is the scanner for the door team (Amavi staff, volunteers): one shared password (`DOOR_PASSWORD`), and it can only check tickets. A scan shows the name and seats, never an email, phone or payment. Hosts can also scan from /admin/scan.
 - **Guest emails** (`lib/emails.ts`): confirmation on payment (sent from the thank-you page), then one week before, the day before and the morning of. `/api/cron/emails` runs hourly and catches anything missed.
 
 | Variable | What it does |
 | --- | --- |
 | `ADMIN_EMAILS` | Comma-separated emails that can open /admin |
-| `ADMIN_SECRET` | Signs admin links and cookies |
+| `ADMIN_SECRET` | Signs admin links, cookies and ticket codes (changing it voids every ticket) |
+| `DOOR_PASSWORD` | One shared password for the door team at /door. Opens the scanner only. Changing it signs every door phone out |
 | `RESEND_API_KEY` | Send-only key for updates.unstoppable.events |
 | `EMAIL_FROM` | `I Am Unstoppable <hello@updates.unstoppable.events>` |
 | `CRON_SECRET` | Lets Vercel run the hourly email job |

@@ -7,7 +7,7 @@ type Result = { ok: boolean; status: string; error?: string; seat?: number; gues
 
 // The door scanner. Uses the phone's back camera and reads QR codes in the page
 // (jsQR), so it works on iPhone and Android with nothing to install.
-export default function Scanner() {
+export default function Scanner({ api = '/admin/api/scan', home = '/admin', door = false }: { api?: string; home?: string; door?: boolean }) {
   const video = useRef<HTMLVideoElement>(null)
   const canvas = useRef<HTMLCanvasElement>(null)
   const lock = useRef(false)
@@ -19,13 +19,13 @@ export default function Scanner() {
 
   const check = useCallback(async (code: string) => {
     lock.current = true
-    const res = await fetch('/admin/api/scan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }) }).catch(() => null)
+    const res = await fetch(api, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }) }).catch(() => null)
     const d = ((await res?.json().catch(() => null)) ?? { ok: false, status: 'error', error: 'No connection. Scan again.' }) as Result
-    if (d.status === 'auth') { window.location.href = '/admin'; return }
+    if (d.status === 'auth') { window.location.href = home; return }
     setResult(d)
     if (d.ok) setCount(c => c + 1)
     try { navigator.vibrate?.(d.ok ? 80 : [60, 60, 60]) } catch {}
-  }, [])
+  }, [api, home])
 
   useEffect(() => {
     let stream: MediaStream | null = null
@@ -69,7 +69,9 @@ export default function Scanner() {
     <div style={{ maxWidth: 520, margin: '0 auto', padding: '16px 16px 40px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
         <h1 style={{ fontSize: 28 }}>Door</h1>
-        <a href="/admin" className="ad-btn ghost sm">Back to admin</a>
+        {door
+          ? <form action="/door/logout" method="post"><button className="ad-btn ghost sm">Sign out</button></form>
+          : <a href="/admin" className="ad-btn ghost sm">Back to admin</a>}
       </div>
       <p className="ad-muted" style={{ margin: '0 0 12px', fontSize: 14 }}>Point the camera at the guest&apos;s QR code. One scan lets in one person. Scanned in this session: <b style={{ color: '#fff' }}>{count}</b></p>
       <div style={{ position: 'relative', borderRadius: 6, overflow: 'hidden', background: '#111', aspectRatio: '1 / 1' }}>
@@ -92,7 +94,9 @@ export default function Scanner() {
         <label>Or paste the ticket link<input value={manual} onChange={e => setManual(e.target.value)} placeholder="https://unstoppable.events/t/..." /></label>
         <button className="ad-btn" disabled={!manual.trim()}>Check ticket</button>
       </form>
-      <p className="ad-small">No ticket? Find them in the guest list in admin and press Check in.</p>
+      <p className="ad-small">{door
+        ? 'No ticket, or the screen says Not valid? Do not let them in yet. Send them to Nevin or Luke.'
+        : 'No ticket? Find them in the guest list in admin and press Check in.'}</p>
     </div>
   )
 }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { currentAdmin } from '../../../../lib/admin-auth'
-import { buildEmail, sendEmail, ticketAttachment } from '../../../../lib/emails'
+import { buildEmail, sendEmail, ticketAttachments } from '../../../../lib/emails'
 import { STAGES, type EmailStage } from '../../../../lib/guests'
 
 // POST { stage } -> sends that email to the signed-in admin, with sample details.
@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
   if (!STAGES.includes(stage as EmailStage)) return NextResponse.json({ ok: false, error: 'Unknown email.' }, { status: 400 })
   const sample = { id: 'pi_TESTSAMPLE', name: 'Test Guest', qty: 1, tier: 'early', result: 'Speak on a stage with total confidence' }
   const { subject, html } = buildEmail(stage as EmailStage, sample)
-  const pdf = stage === 'confirmation' || stage === 'day' ? await ticketAttachment(sample) : null
-  const r = await sendEmail(me, `[TEST] ${subject}`, html, undefined, pdf ? [pdf] : undefined)
+  const files = stage === 'confirmation' || stage === 'day' ? await ticketAttachments(sample) : []
+  const r = await sendEmail(me, `[TEST] ${subject}`, html, undefined, files.length ? files : undefined)
   return NextResponse.json({ ...r, to: me }, { status: r.ok ? 200 : 502 })
 }

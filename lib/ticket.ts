@@ -36,7 +36,7 @@ export function readTicket(input: string): string | null {
   return a.length === b.length && timingSafeEqual(a, b) ? id : null
 }
 
-export const qrPng = (paymentId: string) => QRCode.toBuffer(ticketUrl(paymentId), { width: 600, margin: 2, errorCorrectionLevel: 'M' })
+export const qrPng = (paymentId: string, width = 600) => QRCode.toBuffer(ticketUrl(paymentId), { width, margin: 2, errorCorrectionLevel: 'M' })
 export const qrSvg = (paymentId: string) => QRCode.toString(ticketUrl(paymentId), { type: 'svg', width: 220, margin: 2, errorCorrectionLevel: 'M', color: { dark: '#000000', light: '#ffffff' } })
 
 // pdf-lib's built-in fonts only speak WinAnsi; anything else becomes '?'.
