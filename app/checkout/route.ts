@@ -5,6 +5,7 @@ import { EVENT_KEY, MAX_PER_ORDER, stock } from '../seats'
 import { salesOpen, SALES_CLOSED_MESSAGE } from '../sales'
 import { storeReady } from '../../lib/store'
 import { buildWaitlistEmail, sendEmail } from '../../lib/emails'
+import { clientIp, overLimit } from '../../lib/throttle'
 import { cleanCode, getReferrer, getSettings, newId, saveRegistration, type Registration } from '../../lib/referrals'
 
 const clip = (s: unknown, n: number) => String(s ?? '').trim().slice(0, n)
@@ -29,6 +30,11 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export async function POST(req: NextRequest) {
   const secret = process.env.STRIPE_SECRET_KEY
+  // A speed limit per address: a real buyer starts checkout a few times at
+  // most, a script filling the guest list or sending waitlist mail does not stop.
+  if (overLimit(`checkout:${clientIp(req)}`, 12, 10 * 60 * 1000)) {
+    return NextResponse.json({ ok: false, error: 'Too many tries from this connection. Wait a few minutes and try again.' }, { status: 429 })
+  }
   const body = (await req.json().catch(() => ({}))) as {
     tier?: string; qty?: number; ref?: string
     details?: Record<string, string>
@@ -57,7 +63,7 @@ export async function POST(req: NextRequest) {
       // Never tell somebody they are on the list when they are not.
       if (!saved) return NextResponse.json({ ok: false, error: 'That did not save. Please try again in a minute.' }, { status: 503 })
       const m = buildWaitlistEmail(who.name)
-      if (process.env.RESEND_API_KEY && process.env.EMAIL_FROM) await sendEmail(who.email, m.subject, m.html, `waitlist-${who.email}`).catch(() => {})
+      if (process.env.RESEND_API_KEY && process.env.EMAIL_FROM && !overLimit(`waitlist-mail:${who.email}`, 1, 24 * 60 * 60 * 1000)) await sendEmail(who.email, m.subject, m.html, `waitlist-${who.email}`).catch(() => {})
       return NextResponse.json({ ok: true, waitlist: true })
     }
     return NextResponse.json({ ok: false, error: SALES_CLOSED_MESSAGE }, { status: 503 })
