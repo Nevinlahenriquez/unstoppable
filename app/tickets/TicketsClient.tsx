@@ -223,6 +223,7 @@ export default function TicketsClient({ tierId, initialQty, stock, open }: { tie
               <button className="tk-btn" disabled={loading}>{loading ? 'One moment…' : open ? 'Continue to payment →' : 'Put me on the list →'}</button>
               {error && <p className="tk-error" role="alert">{error}</p>}
               {open && <p className="tk-trust"><ShieldCheck size={16} aria-hidden="true" /> Then pay right here: card, Apple Pay or Google Pay.</p>}
+              <p className="tk-legal">By continuing you agree to our <a href="/terms" target="_blank">terms</a> and <a href="/refunds" target="_blank">refund policy</a>. See how we handle your details in our <a href="/privacy" target="_blank">privacy policy</a>.</p>
             </form>
           ) : (
             <div className="tk-step tk-step-pay">
@@ -298,6 +299,8 @@ export default function TicketsClient({ tierId, initialQty, stock, open }: { tie
         .tk-btn{margin-top:22px;width:100%;min-height:60px;border:0;border-radius:4px;background:linear-gradient(180deg,#F7D27A,#E3AE45);color:#000;font:800 15px/1 var(--vv-body),Inter,sans-serif;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;box-shadow:0 20px 60px -18px rgba(227,174,69,.7)}
         .tk-trust{display:flex;align-items:center;gap:8px;margin:16px 0 0;font-size:13px;color:#8E8576}
         .tk-trust svg{color:#E3AE45}
+        .tk-legal{margin:10px 0 0;font-size:12.5px;line-height:1.5;color:#8E8576}
+        .tk-legal a{color:#C9A15A}
         .tk-error{margin:14px 0 0;color:#F0B8A0}
         .tk-deal{margin:12px 0 0;font-size:14.5px;line-height:1.5;color:#E3AE45;font-weight:600}
         .tk-deal button{background:none;border:1px solid rgba(227,174,69,.55);color:#E3AE45;font:inherit;font-size:13.5px;font-weight:700;padding:6px 12px;margin-left:6px;border-radius:3px;cursor:pointer;min-height:36px}

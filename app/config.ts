@@ -224,6 +224,9 @@ export const FAQ = [
   { q: 'Can I come on my own?', a: 'Most people do. The networking circles are designed so you meet everyone, starting from the first coffee.' },
   { q: 'Can I buy tickets for friends?', a: 'Yes. Choose up to 6 tickets in one order. Early bird is limited to the first 30 seats, so a group booking early saves the most.' },
   { q: 'How do I pay?', a: 'By card, Apple Pay or Google Pay, on a secure Stripe checkout. Your receipt arrives by email straight away.' },
+  { q: 'Can I get a refund?', a: 'Yes, a full refund until 14 days before the event. After that your ticket is not refundable, but you can pass it to a friend: just email us their name. If the event is cancelled or moved, you get your money back. The full policy is on the refunds page.' },
+  { q: 'Is the hypnosis session right for everyone?', a: 'For most people, yes. If you have epilepsy, a serious mental health condition such as psychosis, or you are pregnant, please email us before you book so Luke can talk it through with you. You can always sit a session out and simply relax.' },
+  { q: 'Will there be photos or filming?', a: 'Yes, parts of the day are photographed and filmed. If you would rather not appear, tell us at the door and we will make sure of it.' },
   { q: 'What language is the event in?', a: 'English.' },
   { q: 'Where exactly is it?', a: 'At Amavi in Canggu, Bali. It is on Google Maps (the link is in the venue section), and arrival details are sent with your ticket.' },
 ]
@@ -272,4 +275,33 @@ export function orderTotal(price: number, qty: number, friendOff = 0): { total: 
   const groups = Math.floor(qty / GROUP_DEAL.qty)
   const withDeal = groups * GROUP_DEAL.total + (qty - groups * GROUP_DEAL.qty) * perSeat
   return withDeal < plain ? { total: withDeal, groups, perSeat } : { total: plain, groups: 0, perSeat }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LEGAL. Terms, refund policy and privacy read from here.
+// ⚠️ DRAFTS FOR NEVIN'S REVIEW. While `draft` is true every legal page shows a
+// "draft" note at the top. Set it to false once the words are approved.
+// ⚠️ THE LEGAL SELLER IS NOT DECIDED YET. Leave `seller` empty until it is: the
+// pages then print a visible placeholder instead of guessing a company.
+// ─────────────────────────────────────────────────────────────────────────────
+export const LEGAL = {
+  draft: true,
+  /** The company that sells the tickets, with its registration number. '' = not decided yet. */
+  seller: '',
+  /** Days before the event that a full refund is still possible. */
+  refundDays: 14,
+  updated: '2026-10-06',
+}
+
+/** The seller's name, or an honest placeholder. */
+export function sellerLabel(): string {
+  return LEGAL.seller || '[Seller to be confirmed]'
+}
+
+/** Last day a full refund can be asked for, e.g. "Friday 9 October 2026". */
+export function refundCutoffLabel(): string {
+  if (!EVENT.dateISO) return `${LEGAL.refundDays} days before the event`
+  const d = new Date(`${EVENT.dateISO}T12:00:00Z`)
+  d.setUTCDate(d.getUTCDate() - LEGAL.refundDays)
+  return formatDate(d.toISOString().slice(0, 10), { weekday: true, year: true })
 }

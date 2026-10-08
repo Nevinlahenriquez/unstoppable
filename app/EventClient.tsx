@@ -628,6 +628,11 @@ export default function EventClient({ stock }: { stock: Stock | null }) {
         <span className="vv-logo">{EVENT.name}<i>.</i></span>
         <span>{EVENT.subtitle} · Luke Anning &amp; Nevin Henriquez · {VENUE.partnerLine}</span>
         <a href={`mailto:${EVENT.contactEmail}`}>{EVENT.contactEmail}</a>
+        <nav className="vv-foot-legal" aria-label="Legal">
+          <a href="/terms">Terms</a>
+          <a href="/refunds">Refund policy</a>
+          <a href="/privacy">Privacy</a>
+        </nav>
       </footer>
 
       {/* Phone: the one action stays a thumb away once the hero has scrolled past. */}
@@ -908,6 +913,9 @@ const CSS = `
 .vv-foot{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:14px;padding:30px 24px 110px;background:var(--ink);color:rgba(244,239,231,.5);font-size:13.5px;border-top:1px solid var(--dline)}
 .vv-foot .vv-logo{color:var(--bone);font-size:20px}
 .vv-foot a{color:var(--gold2);text-decoration:none}
+.vv-foot-legal{display:flex;gap:18px;flex-basis:100%;font-size:13px}
+.vv-foot-legal a{color:rgba(244,239,231,.6)}
+.vv-foot-legal a:hover{color:var(--gold2)}
 
 /* icon chip, shared */
 .vv-ico{display:inline-flex;align-items:center;justify-content:center;width:58px;height:58px;border-radius:4px;color:var(--gold2);background:radial-gradient(circle at 30% 20%,rgba(247,210,122,.22),rgba(227,174,69,.06));border:1px solid rgba(227,174,69,.45);box-shadow:0 10px 30px -12px rgba(227,174,69,.5)}
