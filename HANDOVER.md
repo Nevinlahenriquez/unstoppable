@@ -108,6 +108,23 @@ $200, group deal 3 seats for $400, up to 6 tickets per order.
   `BLOB_READ_WRITE_TOKEN` as sensitive, set a strong `DOOR_PASSWORD`, delete the
   leftover `SELFTEST_KEY` variable.
 
+## Setting it up fresh (if you received the code as a zip)
+
+1. Put the folder in your own GitHub repo (new private repo, push the files).
+2. In your Vercel team (Pro plan, since it sells tickets): Add New → Project →
+   import that repo. Framework is detected as Next.js.
+3. Storage → Create → **Blob**, connect it to the project. That sets
+   `BLOB_READ_WRITE_TOKEN`. The new store starts empty (no old waitlist).
+4. Add the environment variables in the table above. Make up new random values
+   for `ADMIN_SECRET`, `CRON_SECRET` and `DOOR_PASSWORD`. Use your own Stripe
+   keys. For email, use your own Resend account with a verified sending domain,
+   and set `RESEND_API_KEY` and `EMAIL_FROM` to match. Keep
+   `TICKET_SALES_OPEN=false` until everything is checked.
+5. Deploy. Then add a domain under Settings → Domains (unstoppable.events stays
+   with Nevin unless he points it at your project; ask him if you want it).
+6. Sign in at /admin with an email from `ADMIN_EMAILS` and send yourself a test
+   email from the Emails tab.
+
 ## After the move to Luke's Vercel team, check
 
 1. The Blob store moved too (Vercel moves it separately from the project) and
