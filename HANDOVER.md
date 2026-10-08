@@ -4,6 +4,24 @@ Written 8 October 2026 for Luke Anning and his Claude, when the site moved
 from Nevin Henriquez to Luke. Read this whole file first. README.md has the
 file map and the full list of settings.
 
+## ⚠️ Nevin has stepped back (8 October 2026)
+
+Nevin decided not to run this event: there is too little time to sell tickets,
+and he is not registered to run a paid event in Bali. The site, the project and
+the code now belong to Luke. That means:
+
+- **Ticket money must never go to Nevin's Stripe account.** Before sales open,
+  both Stripe keys must be from the account of whoever legally runs the event,
+  with the right permits.
+- **The pages still name Nevin as co-host** (`HOSTS`, copy and photos in
+  `app/config.ts` and `app/EventClient.tsx`, the subtitle "Luke Anning & Nevin
+  Henriquez" on /tickets, the emails in `lib/emails.ts`). Change all of it to
+  the new line-up before anything is promoted, and check every page with a search
+  for "Nevin".
+- Remove Nevin's email from `ADMIN_EMAILS` once Luke has his own sign-in.
+- People already on the waitlist signed up for the event as advertised with
+  Nevin; tell them about any change before asking them to buy.
+
 ## What this is
 
 The website and ticketing for **I Am Unstoppable** ("Rewire Your Beliefs.
@@ -70,7 +88,7 @@ $200, group deal 3 seats for $400, up to 6 tickets per order.
 
 ## State on 8 October 2026
 
-- **Sales are CLOSED.** The waitlist is collecting sign-ups.
+- **Sales are CLOSED** and stay closed until Luke decides to open them. The waitlist is collecting sign-ups.
 - **Blocker before sales can open:** `STRIPE_SECRET_KEY` in Vercel holds a key
   *ID* (starts `mk_`), not a key, so Stripe rejects it and checkout fails. Put
   the real secret key of the selling Stripe account there (and its matching
