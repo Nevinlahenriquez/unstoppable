@@ -95,6 +95,8 @@ $200, group deal 3 seats for $400, up to 6 tickets per order.
 1. The Blob store moved too (Vercel moves it separately from the project) and
    `BLOB_READ_WRITE_TOKEN` is still set. /admin shows a red banner if not.
 2. The domain unstoppable.events and www point at the project (Settings → Domains).
+   The domain itself stays registered to Nevin's Vercel team; if Vercel asks
+   to verify it, Nevin adds the TXT record it shows in his DNS.
 3. The Git connection works: a push to `main` creates a production deployment.
 4. The hourly cron appears under Settings → Cron Jobs.
 5. `ADMIN_EMAILS` includes Luke's email.
